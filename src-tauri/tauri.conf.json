@@ -21,7 +21,7 @@
         "decorations": false,
         "transparent": true,
         "visible": false,
-        "skipTaskbar": true
+        "skipTaskbar": false
       }
     ],
     "trayIcon": {
