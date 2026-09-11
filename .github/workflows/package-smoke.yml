@@ -63,7 +63,7 @@ jobs:
         run: npm run icons
 
       - name: Build production bundles
-        run: npx tauri build --locked
+        run: npx tauri build
 
       - name: Verify bundle output (Unix)
         if: matrix.target != 'windows'
