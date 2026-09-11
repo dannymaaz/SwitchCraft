@@ -1,6 +1,6 @@
 {
   "name": "switchcraft",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Securely switch local AI developer sessions across supported clients",
   "author": "Danny Maaz",
   "license": "MIT",
@@ -12,6 +12,7 @@
     "icons": "tauri icon src/logo.svg",
     "check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "version:check": "node scripts/check-version-sync.mjs",
     "tauri": "tauri"
   },
   "devDependencies": {
