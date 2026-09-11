@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/nicegui-org/nicegui/main/tauri/src-tauri/gen/schemas/desktop-schema.json",
   "identifier": "com.dannymaaz.switchcraft",
   "productName": "SwitchCraft",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "build": {
     "frontendDist": "../src",
     "devUrl": "http://localhost:1420"
@@ -12,9 +12,11 @@
     "windows": [
       {
         "title": "SwitchCraft",
-        "width": 440,
-        "height": 640,
-        "resizable": false,
+        "width": 560,
+        "height": 720,
+        "minWidth": 520,
+        "minHeight": 640,
+        "resizable": true,
         "center": true,
         "decorations": false,
         "transparent": true,
@@ -25,16 +27,16 @@
     "trayIcon": {
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
-      "tooltip": "SwitchCraft"
+      "tooltip": "SwitchCraft — Session Control"
     },
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; script-src 'self'"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'"
     }
   },
   "bundle": {
     "active": true,
-    "shortDescription": "Instant multi-account switcher for Codex, Gemini, and Claude",
-    "longDescription": "SwitchCraft is an ultra-fast, background-resident account manager for AI developers. Switch between multiple profiles across Codex, Google Gemini/Antigravity, and Anthropic Claude in a single click.",
+    "shortDescription": "Secure local session switcher for AI developer tools",
+    "longDescription": "SwitchCraft is a local-first session manager that stores protected profile copies in the operating system credential vault and applies supported AI developer sessions using transactional file replacement and rollback.",
     "copyright": "Copyright (c) 2026 Danny Maaz",
     "publisher": "Danny Maaz",
     "icon": [
