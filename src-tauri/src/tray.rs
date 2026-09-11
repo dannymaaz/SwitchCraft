@@ -40,13 +40,17 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             "quick_switch" => {
                 show_main_window(app);
                 if let Some(window) = app.get_webview_window("main") {
-                    window.eval("document.getElementById('btn-quick-switch')?.click()").ok();
+                    window
+                        .eval("document.getElementById('btn-quick-switch')?.click()")
+                        .ok();
                 }
             }
             "check_update" => {
                 show_main_window(app);
                 if let Some(window) = app.get_webview_window("main") {
-                    window.eval("document.getElementById('btn-manual-update')?.click()").ok();
+                    window
+                        .eval("document.getElementById('btn-manual-update')?.click()")
+                        .ok();
                 }
             }
             "quit" => app.exit(0),

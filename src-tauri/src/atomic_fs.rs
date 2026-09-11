@@ -21,8 +21,12 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     fs::create_dir_all(parent)
         .map_err(|e| format!("Could not create {}: {e}", parent.display()))?;
 
-    let mut temp = NamedTempFile::new_in(parent)
-        .map_err(|e| format!("Could not create temporary file in {}: {e}", parent.display()))?;
+    let mut temp = NamedTempFile::new_in(parent).map_err(|e| {
+        format!(
+            "Could not create temporary file in {}: {e}",
+            parent.display()
+        )
+    })?;
 
     temp.write_all(bytes)
         .map_err(|e| format!("Could not write temporary credentials file: {e}"))?;
@@ -32,8 +36,13 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         .sync_all()
         .map_err(|e| format!("Could not sync temporary credentials file: {e}"))?;
 
-    temp.persist(path)
-        .map_err(|e| format!("Could not atomically replace {}: {}", path.display(), e.error))?;
+    temp.persist(path).map_err(|e| {
+        format!(
+            "Could not atomically replace {}: {}",
+            path.display(),
+            e.error
+        )
+    })?;
 
     #[cfg(unix)]
     {
@@ -50,8 +59,9 @@ pub fn restore(path: &Path, previous: Option<&[u8]>) -> Result<(), String> {
         Some(bytes) => atomic_write(path, bytes),
         None => {
             if path.exists() {
-                fs::remove_file(path)
-                    .map_err(|e| format!("Could not remove {} during rollback: {e}", path.display()))?;
+                fs::remove_file(path).map_err(|e| {
+                    format!("Could not remove {} during rollback: {e}", path.display())
+                })?;
             }
             Ok(())
         }

@@ -119,10 +119,18 @@ fn ensure_no_managed_codex_auth_policy() -> Result<(), String> {
             continue;
         }
 
-        let raw = fs::read_to_string(&path)
-            .map_err(|e| format!("Could not read managed Codex configuration at {}: {e}", path.display()))?;
-        let value: toml::Value = toml::from_str(&raw)
-            .map_err(|e| format!("Could not parse managed Codex configuration at {}: {e}", path.display()))?;
+        let raw = fs::read_to_string(&path).map_err(|e| {
+            format!(
+                "Could not read managed Codex configuration at {}: {e}",
+                path.display()
+            )
+        })?;
+        let value: toml::Value = toml::from_str(&raw).map_err(|e| {
+            format!(
+                "Could not parse managed Codex configuration at {}: {e}",
+                path.display()
+            )
+        })?;
 
         if toml_contains_managed_auth_policy(&value) {
             return Err(format!(
@@ -168,11 +176,14 @@ pub fn supported_targets(platform: &Platform) -> Vec<String> {
 
 fn read_json(path: &Path) -> Result<Value, String> {
     if !path.exists() {
-        return Err(format!("No active session file was found at {}", path.display()));
+        return Err(format!(
+            "No active session file was found at {}",
+            path.display()
+        ));
     }
 
-    let raw = fs::read_to_string(path)
-        .map_err(|e| format!("Could not read {}: {e}", path.display()))?;
+    let raw =
+        fs::read_to_string(path).map_err(|e| format!("Could not read {}: {e}", path.display()))?;
     serde_json::from_str(&raw)
         .map_err(|e| format!("{} does not contain valid JSON: {e}", path.display()))
 }
@@ -194,7 +205,10 @@ fn find_email(value: &Value) -> Option<String> {
     }
 }
 
-fn parse_codex_auth_config(raw: Option<&str>, windows_default: bool) -> Result<CodexAuthConfig, String> {
+fn parse_codex_auth_config(
+    raw: Option<&str>,
+    windows_default: bool,
+) -> Result<CodexAuthConfig, String> {
     let Some(raw) = raw else {
         return Ok(CodexAuthConfig {
             mode: CodexCredentialStoreMode::File,
@@ -202,8 +216,8 @@ fn parse_codex_auth_config(raw: Option<&str>, windows_default: bool) -> Result<C
         });
     };
 
-    let config: toml::Value = toml::from_str(raw)
-        .map_err(|e| format!("Could not parse Codex config.toml: {e}"))?;
+    let config: toml::Value =
+        toml::from_str(raw).map_err(|e| format!("Could not parse Codex config.toml: {e}"))?;
 
     let mode = match config
         .get("cli_auth_credentials_store")
@@ -265,7 +279,8 @@ pub fn codex_direct_keyring_account() -> Result<String, String> {
 
 fn read_codex_direct_keyring() -> Result<Option<Value>, String> {
     let account = codex_direct_keyring_account()?;
-    let Some(raw) = secure_store::try_get_external_text(CODEX_DIRECT_KEYRING_SERVICE, &account)? else {
+    let Some(raw) = secure_store::try_get_external_text(CODEX_DIRECT_KEYRING_SERVICE, &account)?
+    else {
         return Ok(None);
     };
     serde_json::from_str(&raw)
@@ -589,7 +604,8 @@ secret_auth_storage = false
     fn managed_auth_policy_detection_is_field_specific() {
         let unrelated: toml::Value = toml::from_str("sandbox_mode = \"read-only\"").unwrap();
         let auth: toml::Value = toml::from_str("cli_auth_credentials_store = \"keyring\"").unwrap();
-        let secret: toml::Value = toml::from_str("[features]\nsecret_auth_storage = false").unwrap();
+        let secret: toml::Value =
+            toml::from_str("[features]\nsecret_auth_storage = false").unwrap();
 
         assert!(!toml_contains_managed_auth_policy(&unrelated));
         assert!(toml_contains_managed_auth_policy(&auth));
