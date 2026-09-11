@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -84,7 +84,7 @@ pub fn supported_targets(platform: &Platform) -> Vec<String> {
     }
 }
 
-fn read_json(path: &PathBuf) -> Result<Value, String> {
+fn read_json(path: &Path) -> Result<Value, String> {
     if !path.exists() {
         return Err(format!("No active session file was found at {}", path.display()));
     }
@@ -100,7 +100,9 @@ fn find_email(value: &Value) -> Option<String> {
         Value::Object(map) => {
             for key in ["email", "account_email", "user_email"] {
                 if let Some(email) = map.get(key).and_then(Value::as_str) {
-                    return Some(email.to_string());
+                    if !email.trim().is_empty() {
+                        return Some(email.to_string());
+                    }
                 }
             }
             map.values().find_map(find_email)
@@ -144,21 +146,15 @@ pub fn import_current(platform: &Platform) -> Result<ImportedSession, String> {
     Ok(ImportedSession { credentials, email })
 }
 
-fn merge_gemini_accounts(target_email: &str) -> Result<Value, String> {
-    let path = gemini_accounts_path()?;
-    let mut current = if path.exists() {
-        read_json(&path).unwrap_or_else(|_| json!({ "active": null, "old": [] }))
-    } else {
-        json!({ "active": null, "old": [] })
-    };
-
+fn merge_gemini_accounts_value(mut current: Value, target_email: &str) -> Value {
     if !current.is_object() {
-        current = json!({ "active": null, "old": [] });
+        current = json!({});
     }
 
     let previous_active = current
         .get("active")
         .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
         .map(str::to_string);
 
     let mut old: Vec<String> = current
@@ -168,6 +164,7 @@ fn merge_gemini_accounts(target_email: &str) -> Result<Value, String> {
             items
                 .iter()
                 .filter_map(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
                 .map(str::to_string)
                 .collect()
         })
@@ -178,12 +175,30 @@ fn merge_gemini_accounts(target_email: &str) -> Result<Value, String> {
             old.push(previous);
         }
     }
-    old.retain(|value| value != target_email);
 
-    Ok(json!({
-        "active": target_email,
-        "old": old
-    }))
+    old.retain(|value| value != target_email);
+    old.dedup();
+
+    if let Some(object) = current.as_object_mut() {
+        object.insert("active".into(), Value::String(target_email.to_string()));
+        object.insert(
+            "old".into(),
+            Value::Array(old.into_iter().map(Value::String).collect()),
+        );
+    }
+
+    current
+}
+
+fn merge_gemini_accounts(target_email: &str) -> Result<Value, String> {
+    let path = gemini_accounts_path()?;
+    let current = if path.exists() {
+        read_json(&path).unwrap_or_else(|_| json!({}))
+    } else {
+        json!({})
+    };
+
+    Ok(merge_gemini_accounts_value(current, target_email))
 }
 
 pub fn build_write_set(
@@ -215,4 +230,54 @@ pub fn build_write_set(
     }
 
     Ok(writes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gemini_registry_preserves_unknown_fields() {
+        let current = json!({
+            "active": "old@example.com",
+            "old": ["older@example.com"],
+            "future_field": { "keep": true }
+        });
+
+        let merged = merge_gemini_accounts_value(current, "new@example.com");
+
+        assert_eq!(merged["active"], "new@example.com");
+        assert_eq!(merged["future_field"]["keep"], true);
+        assert_eq!(
+            merged["old"],
+            json!(["older@example.com", "old@example.com"])
+        );
+    }
+
+    #[test]
+    fn gemini_registry_removes_target_from_old_history() {
+        let current = json!({
+            "active": "old@example.com",
+            "old": ["new@example.com", "older@example.com"]
+        });
+
+        let merged = merge_gemini_accounts_value(current, "new@example.com");
+
+        assert_eq!(merged["active"], "new@example.com");
+        assert_eq!(
+            merged["old"],
+            json!(["older@example.com", "old@example.com"])
+        );
+    }
+
+    #[test]
+    fn find_email_ignores_empty_values_and_searches_nested_objects() {
+        let value = json!({
+            "email": "",
+            "tokens": {
+                "user_email": "person@example.com"
+            }
+        });
+        assert_eq!(find_email(&value).as_deref(), Some("person@example.com"));
+    }
 }
