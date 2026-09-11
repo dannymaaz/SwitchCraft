@@ -45,8 +45,11 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Generate branded installer artwork
+        run: npm run assets
+
       - name: Generate branded application icons
-        run: npm run tauri icon src/logo.svg
+        run: npm run icons
 
       - name: Validate Rust core
         run: cargo check --manifest-path src-tauri/Cargo.toml
