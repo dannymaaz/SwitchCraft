@@ -181,7 +181,11 @@ fn load_credentials(account: &StoredAccount) -> Result<Value, String> {
     ))
 }
 
-fn save_recovery_snapshot(platform: &Platform, write: &PlannedWrite, previous: Option<&[u8]>) -> Result<(), String> {
+fn save_recovery_snapshot(
+    platform: &Platform,
+    write: &PlannedWrite,
+    previous: Option<&[u8]>,
+) -> Result<(), String> {
     let snapshot = RecoverySnapshot {
         existed: previous.is_some(),
         content: previous.map(|bytes| String::from_utf8_lossy(bytes).to_string()),
@@ -195,7 +199,11 @@ fn save_recovery_snapshot(platform: &Platform, write: &PlannedWrite, previous: O
     )
 }
 
-fn rollback_writes(writes: &[PlannedWrite], previous: &[Option<Vec<u8>>], applied: usize) -> Result<(), String> {
+fn rollback_writes(
+    writes: &[PlannedWrite],
+    previous: &[Option<Vec<u8>>],
+    applied: usize,
+) -> Result<(), String> {
     let mut errors = Vec::new();
     for index in (0..applied).rev() {
         if let Err(err) = atomic_fs::restore(&writes[index].path, previous[index].as_deref()) {
@@ -210,7 +218,10 @@ fn rollback_writes(writes: &[PlannedWrite], previous: &[Option<Vec<u8>>], applie
     }
 }
 
-fn apply_transaction(platform: &Platform, writes: &[PlannedWrite]) -> Result<Vec<Option<Vec<u8>>>, String> {
+fn apply_transaction(
+    platform: &Platform,
+    writes: &[PlannedWrite],
+) -> Result<Vec<Option<Vec<u8>>>, String> {
     let mut previous = Vec::with_capacity(writes.len());
 
     for write in writes {
@@ -232,6 +243,25 @@ fn apply_transaction(platform: &Platform, writes: &[PlannedWrite]) -> Result<Vec
     }
 
     Ok(previous)
+}
+
+fn rollback_paths(
+    paths: &[PathBuf],
+    previous: &[Option<Vec<u8>>],
+    applied: usize,
+) -> Result<(), String> {
+    let mut errors = Vec::new();
+    for index in (0..applied).rev() {
+        if let Err(err) = atomic_fs::restore(&paths[index], previous[index].as_deref()) {
+            errors.push(err);
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join(" | "))
+    }
 }
 
 fn infer_top_level_email(credentials: &Value) -> Option<String> {
@@ -384,23 +414,66 @@ pub fn switch_account(id: String) -> Result<Account, String> {
 #[tauri::command]
 pub fn restore_last_session(platform: String) -> Result<(), String> {
     let platform = providers::parse_platform(&platform)?;
-    let mut targets = vec![("primary", providers::primary_auth_path(&platform)?)];
+    let mut store = load_store()?;
+
+    let mut target_slots = vec![("primary", providers::primary_auth_path(&platform)?)];
     if platform == Platform::Gemini {
-        targets.push(("accounts", providers::gemini_accounts_path()?));
+        target_slots.push(("accounts", providers::gemini_accounts_path()?));
     }
 
-    for (slot, path) in targets {
+    // Read and validate every secure recovery snapshot before touching any target.
+    let mut paths = Vec::with_capacity(target_slots.len());
+    let mut desired_states: Vec<Option<Vec<u8>>> = Vec::with_capacity(target_slots.len());
+    for (slot, path) in target_slots {
         let key = secure_store::recovery_key(&platform.to_string(), slot);
         let snapshot_value = secure_store::get_json(&key)?;
         let snapshot: RecoverySnapshot = serde_json::from_value(snapshot_value)
             .map_err(|e| format!("Recovery snapshot is invalid: {e}"))?;
 
-        if snapshot.existed {
-            let content = snapshot.content.unwrap_or_default();
-            atomic_fs::atomic_write(&path, content.as_bytes())?;
+        paths.push(path);
+        desired_states.push(if snapshot.existed {
+            Some(snapshot.content.unwrap_or_default().into_bytes())
         } else {
-            atomic_fs::restore(&path, None)?;
+            None
+        });
+    }
+
+    let mut previous_states = Vec::with_capacity(paths.len());
+    for path in &paths {
+        previous_states.push(atomic_fs::read_optional(path)?);
+    }
+
+    for index in 0..paths.len() {
+        let result = atomic_fs::restore(&paths[index], desired_states[index].as_deref());
+        if let Err(err) = result {
+            let rollback = rollback_paths(&paths, &previous_states, index);
+            return match rollback {
+                Ok(_) => Err(format!("Restore failed and was rolled back: {err}")),
+                Err(rollback_err) => Err(format!(
+                    "Restore failed: {err}. Automatic rollback also reported: {rollback_err}"
+                )),
+            };
         }
+    }
+
+    // A recovery snapshot can belong to a session that was not registered in SwitchCraft.
+    // Clear the provider's active marker rather than displaying a stale identity as active.
+    for account in &mut store.accounts {
+        if account.platform == platform {
+            account.is_active = false;
+        }
+    }
+
+    if let Err(metadata_err) = save_store(&store) {
+        let rollback = rollback_paths(&paths, &previous_states, paths.len());
+        return match rollback {
+            Ok(_) => Err(format!(
+                "The restored session was reverted because SwitchCraft could not save account state: {metadata_err}"
+            )),
+            Err(rollback_err) => Err(format!(
+                "Could not save restored account state: {metadata_err}. Rollback also reported: {rollback_err}"
+            )),
+        };
     }
 
     Ok(())
@@ -454,8 +527,16 @@ pub fn rename_account(id: String, new_name: String) -> Result<(), String> {
 #[tauri::command]
 pub fn get_security_summary() -> Result<Value, String> {
     let store = load_store()?;
-    let secure = store.accounts.iter().filter(|account| account.secret_ref.is_some()).count();
-    let legacy = store.accounts.iter().filter(|account| account.credentials.is_some()).count();
+    let secure = store
+        .accounts
+        .iter()
+        .filter(|account| account.secret_ref.is_some())
+        .count();
+    let legacy = store
+        .accounts
+        .iter()
+        .filter(|account| account.credentials.is_some())
+        .count();
     Ok(json!({
         "secure_accounts": secure,
         "legacy_accounts": legacy,
