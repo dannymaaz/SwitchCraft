@@ -1,5 +1,5 @@
 use crate::atomic_fs;
-use crate::providers::{self, Platform, PlannedWrite};
+use crate::providers::{self, PlannedMutation, Platform};
 use crate::secure_store;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -71,11 +71,36 @@ struct AccountStore {
     pub accounts: Vec<StoredAccount>,
 }
 
+// v1.1 compatibility format. New recovery data is stored as one secure manifest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct RecoverySnapshot {
+struct LegacyRecoverySnapshot {
     existed: bool,
     content: Option<String>,
     captured_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RecoveryManifest {
+    captured_at: String,
+    targets: Vec<RecoveryTarget>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum RecoveryTarget {
+    File {
+        slot: String,
+        path: String,
+        existed: bool,
+        content: Option<String>,
+    },
+    Keyring {
+        slot: String,
+        service: String,
+        account: String,
+        existed: bool,
+        content: Option<String>,
+    },
 }
 
 impl StoredAccount {
@@ -181,32 +206,128 @@ fn load_credentials(account: &StoredAccount) -> Result<Value, String> {
     ))
 }
 
-fn save_recovery_snapshot(
-    platform: &Platform,
-    write: &PlannedWrite,
-    previous: Option<&[u8]>,
-) -> Result<(), String> {
-    let snapshot = RecoverySnapshot {
-        existed: previous.is_some(),
-        content: previous.map(|bytes| String::from_utf8_lossy(bytes).to_string()),
-        captured_at: Utc::now().to_rfc3339(),
+fn utf8_file_content(path: &PathBuf) -> Result<Option<String>, String> {
+    let Some(bytes) = atomic_fs::read_optional(path)? else {
+        return Ok(None);
     };
-    let value = serde_json::to_value(snapshot)
-        .map_err(|e| format!("Could not serialize recovery snapshot: {e}"))?;
-    secure_store::put_json(
-        &secure_store::recovery_key(&platform.to_string(), write.slot),
-        &value,
-    )
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|_| format!("Credential file {} is not valid UTF-8", path.display()))
 }
 
-fn rollback_writes(
-    writes: &[PlannedWrite],
-    previous: &[Option<Vec<u8>>],
-    applied: usize,
-) -> Result<(), String> {
+fn snapshot_mutation(mutation: &PlannedMutation) -> Result<RecoveryTarget, String> {
+    match mutation {
+        PlannedMutation::File { slot, path, .. } => {
+            let content = utf8_file_content(path)?;
+            Ok(RecoveryTarget::File {
+                slot: (*slot).to_string(),
+                path: path.to_string_lossy().into_owned(),
+                existed: content.is_some(),
+                content,
+            })
+        }
+        PlannedMutation::Keyring {
+            slot,
+            service,
+            account,
+            ..
+        } => {
+            let content = secure_store::try_get_external_text(service, account)?;
+            Ok(RecoveryTarget::Keyring {
+                slot: (*slot).to_string(),
+                service: service.clone(),
+                account: account.clone(),
+                existed: content.is_some(),
+                content,
+            })
+        }
+    }
+}
+
+fn snapshot_recovery_target(target: &RecoveryTarget) -> Result<RecoveryTarget, String> {
+    match target {
+        RecoveryTarget::File { slot, path, .. } => {
+            let path_buf = PathBuf::from(path);
+            let content = utf8_file_content(&path_buf)?;
+            Ok(RecoveryTarget::File {
+                slot: slot.clone(),
+                path: path.clone(),
+                existed: content.is_some(),
+                content,
+            })
+        }
+        RecoveryTarget::Keyring {
+            slot,
+            service,
+            account,
+            ..
+        } => {
+            let content = secure_store::try_get_external_text(service, account)?;
+            Ok(RecoveryTarget::Keyring {
+                slot: slot.clone(),
+                service: service.clone(),
+                account: account.clone(),
+                existed: content.is_some(),
+                content,
+            })
+        }
+    }
+}
+
+fn apply_mutation(mutation: &PlannedMutation) -> Result<(), String> {
+    match mutation {
+        PlannedMutation::File { path, value, .. } => atomic_fs::restore(path, value.as_deref()),
+        PlannedMutation::Keyring {
+            service,
+            account,
+            value,
+            ..
+        } => match value {
+            Some(value) => secure_store::put_external_text(service, account, value),
+            None => secure_store::delete_external(service, account),
+        },
+    }
+}
+
+fn restore_target(target: &RecoveryTarget) -> Result<(), String> {
+    match target {
+        RecoveryTarget::File {
+            path,
+            existed,
+            content,
+            ..
+        } => {
+            let path = PathBuf::from(path);
+            if *existed {
+                atomic_fs::atomic_write(&path, content.as_deref().unwrap_or_default().as_bytes())
+            } else {
+                atomic_fs::restore(&path, None)
+            }
+        }
+        RecoveryTarget::Keyring {
+            service,
+            account,
+            existed,
+            content,
+            ..
+        } => {
+            if *existed {
+                secure_store::put_external_text(
+                    service,
+                    account,
+                    content.as_deref().unwrap_or_default(),
+                )
+            } else {
+                secure_store::delete_external(service, account)
+            }
+        }
+    }
+}
+
+fn rollback_targets(targets: &[RecoveryTarget], applied: usize) -> Result<(), String> {
     let mut errors = Vec::new();
-    for index in (0..applied).rev() {
-        if let Err(err) = atomic_fs::restore(&writes[index].path, previous[index].as_deref()) {
+    for index in (0..applied.min(targets.len())).rev() {
+        if let Err(err) = restore_target(&targets[index]) {
             errors.push(err);
         }
     }
@@ -218,21 +339,17 @@ fn rollback_writes(
     }
 }
 
-fn apply_transaction(
-    platform: &Platform,
-    writes: &[PlannedWrite],
-) -> Result<Vec<Option<Vec<u8>>>, String> {
-    let mut previous = Vec::with_capacity(writes.len());
-
-    for write in writes {
-        let before = atomic_fs::read_optional(&write.path)?;
-        save_recovery_snapshot(platform, write, before.as_deref())?;
-        previous.push(before);
+fn apply_transaction(mutations: &[PlannedMutation]) -> Result<RecoveryManifest, String> {
+    let mut previous = Vec::with_capacity(mutations.len());
+    for mutation in mutations {
+        previous.push(snapshot_mutation(mutation)?);
     }
 
-    for (index, write) in writes.iter().enumerate() {
-        if let Err(err) = atomic_fs::atomic_write(&write.path, &write.bytes) {
-            let rollback = rollback_writes(writes, &previous, index);
+    for (index, mutation) in mutations.iter().enumerate() {
+        if let Err(err) = apply_mutation(mutation) {
+            // Restoring the failing target as well is safe and covers credential-store
+            // implementations that may report an error after a partial side effect.
+            let rollback = rollback_targets(&previous, index + 1);
             return match rollback {
                 Ok(_) => Err(format!("Switch failed and was rolled back: {err}")),
                 Err(rollback_err) => Err(format!(
@@ -242,26 +359,64 @@ fn apply_transaction(
         }
     }
 
-    Ok(previous)
+    Ok(RecoveryManifest {
+        captured_at: Utc::now().to_rfc3339(),
+        targets: previous,
+    })
 }
 
-fn rollback_paths(
-    paths: &[PathBuf],
-    previous: &[Option<Vec<u8>>],
-    applied: usize,
-) -> Result<(), String> {
-    let mut errors = Vec::new();
-    for index in (0..applied).rev() {
-        if let Err(err) = atomic_fs::restore(&paths[index], previous[index].as_deref()) {
-            errors.push(err);
+fn persist_recovery_manifest(platform: &Platform, manifest: &RecoveryManifest) -> Result<(), String> {
+    let value = serde_json::to_value(manifest)
+        .map_err(|e| format!("Could not serialize recovery manifest: {e}"))?;
+    secure_store::put_json(
+        &secure_store::recovery_manifest_key(&platform.to_string()),
+        &value,
+    )
+}
+
+fn restore_previous_manifest_value(platform: &Platform, previous: Option<Value>) -> Result<(), String> {
+    let key = secure_store::recovery_manifest_key(&platform.to_string());
+    match previous {
+        Some(value) => secure_store::put_json(&key, &value),
+        None => {
+            secure_store::delete(&key);
+            Ok(())
         }
     }
+}
 
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors.join(" | "))
+fn load_legacy_recovery_manifest(platform: &Platform) -> Result<RecoveryManifest, String> {
+    let mut slots = vec![("primary", providers::primary_auth_path(platform)?)];
+    if *platform == Platform::Gemini {
+        slots.push(("accounts", providers::gemini_accounts_path()?));
     }
+
+    let mut targets = Vec::with_capacity(slots.len());
+    for (slot, path) in slots {
+        let value = secure_store::get_json(&secure_store::recovery_key(&platform.to_string(), slot))?;
+        let snapshot: LegacyRecoverySnapshot = serde_json::from_value(value)
+            .map_err(|e| format!("Legacy recovery snapshot is invalid: {e}"))?;
+        targets.push(RecoveryTarget::File {
+            slot: slot.to_string(),
+            path: path.to_string_lossy().into_owned(),
+            existed: snapshot.existed,
+            content: snapshot.content,
+        });
+    }
+
+    Ok(RecoveryManifest {
+        captured_at: Utc::now().to_rfc3339(),
+        targets,
+    })
+}
+
+fn load_recovery_manifest(platform: &Platform) -> Result<RecoveryManifest, String> {
+    let key = secure_store::recovery_manifest_key(&platform.to_string());
+    if let Some(value) = secure_store::try_get_json(&key)? {
+        return serde_json::from_value(value)
+            .map_err(|e| format!("Recovery manifest is invalid: {e}"));
+    }
+    load_legacy_recovery_manifest(platform)
 }
 
 fn infer_top_level_email(credentials: &Value) -> Option<String> {
@@ -382,13 +537,30 @@ pub fn switch_account(id: String) -> Result<Account, String> {
         return Ok(target.view());
     }
 
+    // Recovery metadata is read before touching provider state. If the local vault is
+    // unavailable, the switch aborts while the currently active session is still intact.
+    let recovery_key = secure_store::recovery_manifest_key(&target.platform.to_string());
+    let previous_manifest = secure_store::try_get_json(&recovery_key)?;
+
     let credentials = load_credentials(&target)?;
-    let writes = providers::build_write_set(
+    let mutations = providers::build_mutations(
         &target.platform,
         &credentials,
         target.email.as_deref(),
     )?;
-    let previous = apply_transaction(&target.platform, &writes)?;
+    let recovery = apply_transaction(&mutations)?;
+
+    if let Err(err) = persist_recovery_manifest(&target.platform, &recovery) {
+        let rollback = rollback_targets(&recovery.targets, recovery.targets.len());
+        return match rollback {
+            Ok(_) => Err(format!(
+                "The switch was reverted because its recovery state could not be secured: {err}"
+            )),
+            Err(rollback_err) => Err(format!(
+                "Could not secure recovery state: {err}. Rollback also reported: {rollback_err}"
+            )),
+        };
+    }
 
     for account in &mut store.accounts {
         if account.platform == target.platform {
@@ -397,14 +569,24 @@ pub fn switch_account(id: String) -> Result<Account, String> {
     }
 
     if let Err(metadata_err) = save_store(&store) {
-        let rollback = rollback_writes(&writes, &previous, writes.len());
-        return match rollback {
-            Ok(_) => Err(format!(
-                "The session files were restored because SwitchCraft could not save account state: {metadata_err}"
-            )),
-            Err(rollback_err) => Err(format!(
-                "Could not save account state: {metadata_err}. Rollback also reported: {rollback_err}"
-            )),
+        let rollback = rollback_targets(&recovery.targets, recovery.targets.len());
+        let manifest_restore = restore_previous_manifest_value(&target.platform, previous_manifest);
+        let mut details = Vec::new();
+        if let Err(err) = rollback {
+            details.push(format!("session rollback: {err}"));
+        }
+        if let Err(err) = manifest_restore {
+            details.push(format!("recovery-manifest rollback: {err}"));
+        }
+        return if details.is_empty() {
+            Err(format!(
+                "The session was restored because SwitchCraft could not save account state: {metadata_err}"
+            ))
+        } else {
+            Err(format!(
+                "Could not save account state: {metadata_err}. Rollback also reported: {}",
+                details.join(" | ")
+            ))
         };
     }
 
@@ -416,37 +598,19 @@ pub fn restore_last_session(platform: String) -> Result<(), String> {
     let platform = providers::parse_platform(&platform)?;
     let mut store = load_store()?;
 
-    let mut target_slots = vec![("primary", providers::primary_auth_path(&platform)?)];
-    if platform == Platform::Gemini {
-        target_slots.push(("accounts", providers::gemini_accounts_path()?));
+    // Snapshot the current recovery pointer before provider state is changed.
+    let recovery_key = secure_store::recovery_manifest_key(&platform.to_string());
+    let previous_manifest_value = secure_store::try_get_json(&recovery_key)?;
+    let manifest = load_recovery_manifest(&platform)?;
+
+    let mut current = Vec::with_capacity(manifest.targets.len());
+    for target in &manifest.targets {
+        current.push(snapshot_recovery_target(target)?);
     }
 
-    // Read and validate every secure recovery snapshot before touching any target.
-    let mut paths = Vec::with_capacity(target_slots.len());
-    let mut desired_states: Vec<Option<Vec<u8>>> = Vec::with_capacity(target_slots.len());
-    for (slot, path) in target_slots {
-        let key = secure_store::recovery_key(&platform.to_string(), slot);
-        let snapshot_value = secure_store::get_json(&key)?;
-        let snapshot: RecoverySnapshot = serde_json::from_value(snapshot_value)
-            .map_err(|e| format!("Recovery snapshot is invalid: {e}"))?;
-
-        paths.push(path);
-        desired_states.push(if snapshot.existed {
-            Some(snapshot.content.unwrap_or_default().into_bytes())
-        } else {
-            None
-        });
-    }
-
-    let mut previous_states = Vec::with_capacity(paths.len());
-    for path in &paths {
-        previous_states.push(atomic_fs::read_optional(path)?);
-    }
-
-    for index in 0..paths.len() {
-        let result = atomic_fs::restore(&paths[index], desired_states[index].as_deref());
-        if let Err(err) = result {
-            let rollback = rollback_paths(&paths, &previous_states, index);
+    for (index, target) in manifest.targets.iter().enumerate() {
+        if let Err(err) = restore_target(target) {
+            let rollback = rollback_targets(&current, index + 1);
             return match rollback {
                 Ok(_) => Err(format!("Restore failed and was rolled back: {err}")),
                 Err(rollback_err) => Err(format!(
@@ -456,8 +620,24 @@ pub fn restore_last_session(platform: String) -> Result<(), String> {
         }
     }
 
-    // A recovery snapshot can belong to a session that was not registered in SwitchCraft.
-    // Clear the provider's active marker rather than displaying a stale identity as active.
+    // Save a reverse recovery point so Restore remains reversible.
+    let reverse_manifest = RecoveryManifest {
+        captured_at: Utc::now().to_rfc3339(),
+        targets: current.clone(),
+    };
+    if let Err(err) = persist_recovery_manifest(&platform, &reverse_manifest) {
+        let rollback = rollback_targets(&current, current.len());
+        return match rollback {
+            Ok(_) => Err(format!(
+                "Restore was reverted because the reverse recovery point could not be secured: {err}"
+            )),
+            Err(rollback_err) => Err(format!(
+                "Could not secure reverse recovery point: {err}. Rollback also reported: {rollback_err}"
+            )),
+        };
+    }
+
+    // The restored session may not correspond to a profile registered in SwitchCraft.
     for account in &mut store.accounts {
         if account.platform == platform {
             account.is_active = false;
@@ -465,14 +645,24 @@ pub fn restore_last_session(platform: String) -> Result<(), String> {
     }
 
     if let Err(metadata_err) = save_store(&store) {
-        let rollback = rollback_paths(&paths, &previous_states, paths.len());
-        return match rollback {
-            Ok(_) => Err(format!(
+        let rollback = rollback_targets(&current, current.len());
+        let manifest_restore = restore_previous_manifest_value(&platform, previous_manifest_value);
+        let mut details = Vec::new();
+        if let Err(err) = rollback {
+            details.push(format!("session rollback: {err}"));
+        }
+        if let Err(err) = manifest_restore {
+            details.push(format!("recovery-manifest rollback: {err}"));
+        }
+        return if details.is_empty() {
+            Err(format!(
                 "The restored session was reverted because SwitchCraft could not save account state: {metadata_err}"
-            )),
-            Err(rollback_err) => Err(format!(
-                "Could not save restored account state: {metadata_err}. Rollback also reported: {rollback_err}"
-            )),
+            ))
+        } else {
+            Err(format!(
+                "Could not save restored account state: {metadata_err}. Rollback also reported: {}",
+                details.join(" | ")
+            ))
         };
     }
 

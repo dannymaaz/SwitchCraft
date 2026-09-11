@@ -29,3 +29,5 @@ dirs = "6"
 open = "5.3"
 tempfile = "3"
 keyring = { version = "3.6", features = ["apple-native", "windows-native", "sync-secret-service"] }
+sha2 = "0.10"
+toml = "0.8"
