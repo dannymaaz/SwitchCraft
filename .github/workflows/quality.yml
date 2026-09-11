@@ -12,7 +12,19 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            target: linux
+          - platform: macos-latest
+            target: macos
+          - platform: windows-latest
+            target: windows
+
+    runs-on: ${{ matrix.platform }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +39,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install Linux dependencies
+        if: matrix.target == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev pkg-config
@@ -36,6 +49,9 @@ jobs:
 
       - name: Validate frontend JavaScript
         run: node --check src/app.js
+
+      - name: Validate branding source and generated platform icons
+        run: npm run icons
 
       - name: Cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
