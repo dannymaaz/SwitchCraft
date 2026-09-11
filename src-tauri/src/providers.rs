@@ -88,6 +88,53 @@ fn codex_config_path() -> Result<PathBuf, String> {
     Ok(codex_home_dir()?.join("config.toml"))
 }
 
+fn codex_managed_policy_paths() -> Result<Vec<PathBuf>, String> {
+    let home = codex_home_dir()?;
+    let mut paths = vec![
+        home.join("managed_config.toml"),
+        home.join("requirements.toml"),
+    ];
+
+    if let Ok(path) = std::env::var("CODEX_APP_SERVER_MANAGED_CONFIG_PATH") {
+        let path = PathBuf::from(path);
+        if !paths.iter().any(|candidate| candidate == &path) {
+            paths.push(path);
+        }
+    }
+
+    Ok(paths)
+}
+
+fn toml_contains_managed_auth_policy(value: &toml::Value) -> bool {
+    value.get("cli_auth_credentials_store").is_some()
+        || value
+            .get("features")
+            .and_then(|features| features.get("secret_auth_storage"))
+            .is_some()
+}
+
+fn ensure_no_managed_codex_auth_policy() -> Result<(), String> {
+    for path in codex_managed_policy_paths()? {
+        if !path.exists() {
+            continue;
+        }
+
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| format!("Could not read managed Codex configuration at {}: {e}", path.display()))?;
+        let value: toml::Value = toml::from_str(&raw)
+            .map_err(|e| format!("Could not parse managed Codex configuration at {}: {e}", path.display()))?;
+
+        if toml_contains_managed_auth_policy(&value) {
+            return Err(format!(
+                "Codex authentication storage is controlled by managed policy at {}. SwitchCraft v1.2 will not override managed auth policy until the full Codex configuration stack can be resolved safely.",
+                path.display()
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 pub fn gemini_oauth_path() -> Result<PathBuf, String> {
     Ok(home_dir()?.join(".gemini").join("oauth_creds.json"))
 }
@@ -189,6 +236,8 @@ fn parse_codex_auth_config(raw: Option<&str>, windows_default: bool) -> Result<C
 }
 
 fn load_codex_auth_config() -> Result<CodexAuthConfig, String> {
+    ensure_no_managed_codex_auth_policy()?;
+
     let path = codex_config_path()?;
     if !path.exists() {
         return parse_codex_auth_config(None, cfg!(target_os = "windows"));
@@ -248,9 +297,6 @@ fn import_codex() -> Result<ImportedSession, String> {
             })?
         }
         CodexCredentialStoreMode::Auto => {
-            // Auto uses the configured keyring backend first. When SecretAuthStorage is
-            // enabled, that backend is the encrypted secrets store, which is intentionally
-            // outside this adapter's scope even if a stale auth.json still exists.
             if config.secret_auth_storage {
                 return Err(unsupported_codex_secrets_message());
             }
@@ -412,9 +458,6 @@ fn build_codex_mutations(credentials: &Value) -> Result<Vec<PlannedMutation>, St
                 return Err(unsupported_codex_secrets_message());
             }
 
-            // Codex Auto tries keyring first whether or not an entry already exists and
-            // falls back to file when the keyring backend is unavailable. A successful
-            // read probe (including NoEntry) demonstrates that the direct backend is usable.
             match direct_codex_keyring_is_readable() {
                 Ok(true) => codex_direct_keyring_mutations(credentials),
                 Ok(false) | Err(_) => codex_file_mutations(credentials),
@@ -540,6 +583,17 @@ secret_auth_storage = false
         let parsed = parse_codex_auth_config(Some(raw), true).unwrap();
         assert_eq!(parsed.mode, CodexCredentialStoreMode::Auto);
         assert!(!parsed.secret_auth_storage);
+    }
+
+    #[test]
+    fn managed_auth_policy_detection_is_field_specific() {
+        let unrelated: toml::Value = toml::from_str("sandbox_mode = \"read-only\"").unwrap();
+        let auth: toml::Value = toml::from_str("cli_auth_credentials_store = \"keyring\"").unwrap();
+        let secret: toml::Value = toml::from_str("[features]\nsecret_auth_storage = false").unwrap();
+
+        assert!(!toml_contains_managed_auth_policy(&unrelated));
+        assert!(toml_contains_managed_auth_policy(&auth));
+        assert!(toml_contains_managed_auth_policy(&secret));
     }
 
     #[test]
