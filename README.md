@@ -1,60 +1,110 @@
+<div align="center">
+
+<img src="assets/logo.png" alt="SwitchCraft Logo" width="128" height="128" style="border-radius: 24px;" />
+
 # SwitchCraft
 
-**Switch between your Codex, Gemini, and Claude accounts in one click.**
+**Unified, instantaneous account manager for AI developer environments**
 
-Tired of logging out and back in every time you need a different account? SwitchCraft sits in your system tray and lets you swap credentials instantly — no browser needed, no terminal gymnastics.
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-141417?style=for-the-badge&logo=linux&logoColor=d4a853" alt="Platform Support" />
+  <img src="https://img.shields.io/badge/Architecture-Tauri%20v2%20%2B%20Rust-141417?style=for-the-badge&logo=rust&logoColor=d4a853" alt="Architecture" />
+  <img src="https://img.shields.io/badge/License-MIT-141417?style=for-the-badge&logoColor=d4a853" alt="License" />
+  <img src="https://img.shields.io/badge/Version-1.0.0-141417?style=for-the-badge&logoColor=d4a853" alt="Version" />
+</p>
 
-![SwitchCraft Screenshot](https://raw.githubusercontent.com/dannymaaz/SwitchCraft/main/docs/screenshot.png)
+<p align="center">
+  Seamlessly swap between multiple profiles across <strong>Codex</strong>, <strong>Gemini / Antigravity</strong>, and <strong>Claude</strong> with a single click. Zero terminal commands. Zero credential collisions.
+</p>
 
----
-
-## Why SwitchCraft?
-
-If you're juggling work and personal accounts across Codex, Gemini (Antigravity), or Claude — whether CLI or desktop app — you know the pain. SwitchCraft keeps all your profiles in one place and switches with a single click.
-
-- **Codex** (CLI & Desktop) — swaps `~/.codex/auth.json`
-- **Gemini / Antigravity** (CLI & IDE) — swaps `~/.gemini/tokens.json`
-- **Claude** (Desktop & Code) — swaps session credentials
-
-No more `rm ~/.codex/auth.json && codex login`. Just click.
+</div>
 
 ---
 
-## Features
+## Overview
 
-- **One-click account switching** — select a profile, done
-- **Multi-platform** — manage Codex, Gemini, and Claude profiles side by side
-- **Usage tracking** — see your remaining weekly/hourly limits at a glance
-- **Import current session** — grab your active credentials automatically
-- **System tray** — runs silently in the background, always ready
-- **Auto-updates** — get notified when a new version drops, update without losing your data
-- **Launch at startup** — optional, starts hidden in the tray
-- **Cross-platform** — Windows, macOS, and Linux
-- **Tiny footprint** — under 10 MB, uses ~20 MB RAM
+SwitchCraft is a lightweight, background-resident desktop utility designed to eliminate authentication friction for engineers working with multiple AI accounts and organizations.
+
+Instead of manually clearing cache directories, re-running CLI authentication prompts, or juggling browser profiles, SwitchCraft maintains an isolated, encrypted vault of credentials and performs atomic file swaps at the operating system level.
 
 ---
 
-## Install
+## Platform Support & Target Integrations
 
-### Download
+<table>
+  <thead>
+    <tr>
+      <th>Platform</th>
+      <th>Credential Scope</th>
+      <th>Supported Environments</th>
+      <th>Target Auth File</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Codex</strong></td>
+      <td>OpenAI OAuth & API Keys</td>
+      <td>Codex CLI, IDE Plugins, Desktop</td>
+      <td><code>~/.codex/auth.json</code></td>
+    </tr>
+    <tr>
+      <td><strong>Gemini / Antigravity</strong></td>
+      <td>Google OAuth & AI Studio Tokens</td>
+      <td>Antigravity IDE, Gemini CLI</td>
+      <td><code>~/.gemini/oauth_creds.json</code><br/><code>~/.gemini/google_accounts.json</code></td>
+    </tr>
+    <tr>
+      <td><strong>Claude</strong></td>
+      <td>Anthropic Session & API Keys</td>
+      <td>Claude Desktop, Claude Code</td>
+      <td><code>Claude/session.json</code> (AppData / App Support / Config)</td>
+    </tr>
+  </tbody>
+</table>
 
-Grab the latest release for your OS:
+---
 
-| Platform | Download |
-|---|---|
-| Windows | [`.msi` installer](https://github.com/dannymaaz/SwitchCraft/releases/latest) |
-| macOS | [`.dmg` disk image](https://github.com/dannymaaz/SwitchCraft/releases/latest) |
-| Linux | [`.AppImage` / `.deb`](https://github.com/dannymaaz/SwitchCraft/releases/latest) |
+## Architecture & Mechanics
 
-### Install from terminal
+SwitchCraft operates locally on your machine without external dependencies or cloud relays.
 
-**macOS / Linux:**
+```mermaid
+flowchart LR
+    A[SwitchCraft Tray App] -->|1. Atomic Backup| B[(~/.switchcraft/backups)]
+    A -->|2. Encrypted Vault Load| C[(~/.switchcraft/accounts.json)]
+    A -->|3. Atomic Swap| D[Active Tool Environment]
+    D --> E[Codex auth.json]
+    D --> F[Gemini oauth_creds.json]
+    D --> G[Claude session.json]
+```
+
+1. **Safety Backup**: Prior to any state change, existing credentials in the target path are archived into timestamped backups located at `~/.switchcraft/backups/`.
+2. **Atomic Replacement**: The target file is written atomically to ensure zero partial-state corruption.
+3. **Session Synchronization**: For multi-file environments (such as Antigravity with Google OAuth and active account registry), both files are updated synchronously.
+
+---
+
+## Installation
+
+### Binary Packages (Direct Download)
+
+Pre-compiled packages for each architecture are available directly from GitHub Releases:
+
+- **Windows (x64)**: [SwitchCraft_1.0.0_x64.msi](https://github.com/dannymaaz/SwitchCraft/releases/latest)
+- **macOS (Universal / Apple Silicon / Intel)**: [SwitchCraft_1.0.0.dmg](https://github.com/dannymaaz/SwitchCraft/releases/latest)
+- **Linux (Debian / Ubuntu / AppImage)**: [SwitchCraft_1.0.0_amd64.AppImage](https://github.com/dannymaaz/SwitchCraft/releases/latest) | [SwitchCraft_1.0.0_amd64.deb](https://github.com/dannymaaz/SwitchCraft/releases/latest)
+
+---
+
+### Command Line Installation
+
+#### Linux & macOS
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dannymaaz/SwitchCraft/main/scripts/install.sh | bash
 ```
 
-**Windows (PowerShell):**
+#### Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/dannymaaz/SwitchCraft/main/scripts/install.ps1 | iex
@@ -62,83 +112,83 @@ irm https://raw.githubusercontent.com/dannymaaz/SwitchCraft/main/scripts/install
 
 ---
 
-## Quick start
+## Authentication Methods
 
-1. Open SwitchCraft (it appears in your system tray)
-2. Click **Add** to create a profile
-3. Pick your platform (Codex, Gemini, or Claude)
-4. Either paste your credentials JSON or click **Import current session** to grab whatever's active
-5. Add as many profiles as you need
-6. Click any profile to switch — that's it
+SwitchCraft provides three secure onboarding pathways within the profile creation modal:
 
-Your original credentials are backed up automatically before every switch.
+### 1. Direct Credential Entry
+- Masked password input field with visibility toggle for screen-sharing security.
+- Accepts raw API keys (`sk-...`, `AIzaSy...`, `sk-ant-...`) or session tokens.
+- Automatically generates the compliant JSON schema required by the target platform.
 
----
+### 2. Browser-Assisted Login Flow
+- Click **Open Official Login** to open the official vendor portal in your default browser.
+- Authenticate normally with your organization or personal credentials.
+- Click **Capture Active Session** to automatically extract and register the session.
 
-## How it works
-
-SwitchCraft doesn't run a proxy or intercept anything. It's straightforward file management:
-
-1. When you switch to a profile, SwitchCraft backs up your current auth file
-2. It writes the selected profile's credentials to the expected path
-3. The next time you open your CLI or desktop app, it picks up the new credentials
-
-All profiles are stored locally in `~/.switchcraft/accounts.json`. Nothing leaves your machine.
+### 3. Raw JSON Importer
+- Direct import for advanced users migrating existing configuration files.
 
 ---
 
-## Settings
+## Usage Quota Monitoring
 
-- **Launch at startup** — starts SwitchCraft minimized to tray when your computer boots
-- **Auto-check for updates** — pings GitHub Releases on launch to see if there's a new version
-- **Switch notifications** — shows a confirmation toast when you switch accounts
+SwitchCraft allows optional tracking for hourly and weekly allocation limits:
+
+- **Weekly Quotas**: Track cumulative consumption across enterprise and team accounts.
+- **Hourly Rate Limits**: Monitor high-frequency API usage limits.
+- **Visual Status Bars**: Color-coded cockpit progress indicators with real-time saturation alerts.
 
 ---
 
-## Building from source
+## Configuration & Autostart
 
-You'll need [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/) (v18+).
+- **Silent Autostart**: Enable launch on system boot via native OS services (LaunchAgent on macOS, Registry Run on Windows, XDG autostart on Linux).
+- **Background Tray Mode**: Minimizing or closing the window parks SwitchCraft in the notification area without interrupting active processes.
+- **Auto-Update Engine**: Checks GitHub Releases via cryptographic signature verification with fallback to manual verification in settings.
+
+---
+
+## Building from Source
+
+### Prerequisites
+
+- [Rust Toolchain (v1.75+)](https://rustup.rs/)
+- [Node.js (v20+)](https://nodejs.org/)
+
+### Build Steps
 
 ```bash
+# Clone the repository
 git clone https://github.com/dannymaaz/SwitchCraft.git
 cd SwitchCraft
+
+# Install dependencies
 npm install
+
+# Run in development mode
 npm run tauri dev
-```
 
-To build a release:
-
-```bash
+# Build production bundle
 npm run tauri build
 ```
 
 ---
 
-## Updating
+## Security & Privacy Policy
 
-SwitchCraft checks for updates automatically (you can turn this off in Settings). When a new version is available, a banner appears at the top of the app. Click "Update now" — it downloads, installs, and restarts without losing your profiles.
-
-You can also check manually from the tray menu or Settings page.
-
----
-
-## Contributing
-
-Found a bug or want to add support for another tool? PRs are welcome.
-
-1. Fork the repo
-2. Create a branch (`git checkout -b fix/something`)
-3. Make your changes
-4. Open a PR
-
-Please keep commits clean and test on at least one platform before submitting.
+- **Zero Cloud Storage**: All profile records remain exclusively on the host device within `~/.switchcraft/`.
+- **Local Execution**: No analytics, telemetry, or third-party tracking scripts are bundled.
+- **Cryptographic Verification**: Release binaries and auto-update payloads are cryptographically signed using Minisign keys.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+This project is released under the **MIT License**. See [LICENSE](LICENSE) for full legal text.
 
 ---
 
-**Powered by Danny Maaz**
+<div align="center">
+  <sub>Designed and built by <strong>Danny Maaz</strong></sub>
+</div>
