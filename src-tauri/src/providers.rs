@@ -45,14 +45,6 @@ pub enum PlannedMutation {
     },
 }
 
-impl PlannedMutation {
-    pub fn slot(&self) -> &'static str {
-        match self {
-            Self::File { slot, .. } | Self::Keyring { slot, .. } => slot,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CodexCredentialStoreMode {
     File,
@@ -94,10 +86,6 @@ pub fn codex_auth_path() -> Result<PathBuf, String> {
 
 fn codex_config_path() -> Result<PathBuf, String> {
     Ok(codex_home_dir()?.join("config.toml"))
-}
-
-fn codex_secrets_auth_path() -> Result<PathBuf, String> {
-    Ok(codex_home_dir()?.join("secrets").join("codex_auth.age"))
 }
 
 pub fn gemini_oauth_path() -> Result<PathBuf, String> {
@@ -236,6 +224,11 @@ fn read_codex_direct_keyring() -> Result<Option<Value>, String> {
         .map_err(|e| format!("Codex keyring entry contains invalid auth JSON: {e}"))
 }
 
+fn direct_codex_keyring_is_readable() -> Result<bool, String> {
+    let account = codex_direct_keyring_account()?;
+    secure_store::try_get_external_text(CODEX_DIRECT_KEYRING_SERVICE, &account).map(|_| true)
+}
+
 fn unsupported_codex_secrets_message() -> String {
     "Codex is using SecretAuthStorage (encrypted codex_auth.age). SwitchCraft v1.2 does not modify that backend yet; disable secret_auth_storage or use file/direct-keyring mode until the encrypted-store adapter is available.".into()
 }
@@ -255,21 +248,20 @@ fn import_codex() -> Result<ImportedSession, String> {
             })?
         }
         CodexCredentialStoreMode::Auto => {
+            // Auto uses the configured keyring backend first. When SecretAuthStorage is
+            // enabled, that backend is the encrypted secrets store, which is intentionally
+            // outside this adapter's scope even if a stale auth.json still exists.
             if config.secret_auth_storage {
-                if codex_secrets_auth_path()?.exists() {
-                    return Err(unsupported_codex_secrets_message());
-                }
-                read_json(&file_path)?
-            } else {
-                match read_codex_direct_keyring() {
-                    Ok(Some(value)) => value,
-                    Ok(None) => read_json(&file_path)?,
-                    Err(keyring_error) => read_json(&file_path).map_err(|file_error| {
-                        format!(
-                            "Codex auto storage could not be read from keyring ({keyring_error}) or file ({file_error})."
-                        )
-                    })?,
-                }
+                return Err(unsupported_codex_secrets_message());
+            }
+            match read_codex_direct_keyring() {
+                Ok(Some(value)) => value,
+                Ok(None) => read_json(&file_path)?,
+                Err(keyring_error) => read_json(&file_path).map_err(|file_error| {
+                    format!(
+                        "Codex auto storage could not be read from keyring ({keyring_error}) or file ({file_error})."
+                    )
+                })?,
             }
         }
         CodexCredentialStoreMode::Ephemeral => {
@@ -417,18 +409,15 @@ fn build_codex_mutations(credentials: &Value) -> Result<Vec<PlannedMutation>, St
         }
         CodexCredentialStoreMode::Auto => {
             if config.secret_auth_storage {
-                if codex_secrets_auth_path()?.exists() {
-                    return Err(unsupported_codex_secrets_message());
-                }
-                return codex_file_mutations(credentials);
+                return Err(unsupported_codex_secrets_message());
             }
 
-            // In auto mode, preserve the currently resolved backend: an existing direct
-            // keyring entry wins; otherwise use the file fallback. If keyring access itself
-            // fails, Codex also falls back to file storage.
-            match read_codex_direct_keyring() {
-                Ok(Some(_)) => codex_direct_keyring_mutations(credentials),
-                Ok(None) | Err(_) => codex_file_mutations(credentials),
+            // Codex Auto tries keyring first whether or not an entry already exists and
+            // falls back to file when the keyring backend is unavailable. A successful
+            // read probe (including NoEntry) demonstrates that the direct backend is usable.
+            match direct_codex_keyring_is_readable() {
+                Ok(true) => codex_direct_keyring_mutations(credentials),
+                Ok(false) | Err(_) => codex_file_mutations(credentials),
             }
         }
         CodexCredentialStoreMode::Ephemeral => Err(
@@ -537,6 +526,19 @@ secret_auth_storage = false
 "#;
         let parsed = parse_codex_auth_config(Some(raw), true).unwrap();
         assert_eq!(parsed.mode, CodexCredentialStoreMode::Keyring);
+        assert!(!parsed.secret_auth_storage);
+    }
+
+    #[test]
+    fn codex_config_parses_auto_without_secret_backend() {
+        let raw = r#"
+cli_auth_credentials_store = "auto"
+
+[features]
+secret_auth_storage = false
+"#;
+        let parsed = parse_codex_auth_config(Some(raw), true).unwrap();
+        assert_eq!(parsed.mode, CodexCredentialStoreMode::Auto);
         assert!(!parsed.secret_auth_storage);
     }
 
