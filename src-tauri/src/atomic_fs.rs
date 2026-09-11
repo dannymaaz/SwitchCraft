@@ -57,3 +57,43 @@ pub fn restore(path: &Path, previous: Option<&[u8]>) -> Result<(), String> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn atomic_write_creates_and_replaces_a_file() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("auth.json");
+
+        atomic_write(&path, b"first").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"first");
+
+        atomic_write(&path, b"second").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"second");
+    }
+
+    #[test]
+    fn restore_reinstates_previous_content() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("auth.json");
+
+        atomic_write(&path, b"new").unwrap();
+        restore(&path, Some(b"old")).unwrap();
+
+        assert_eq!(fs::read(&path).unwrap(), b"old");
+    }
+
+    #[test]
+    fn restore_removes_file_when_previous_state_was_absent() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("auth.json");
+
+        atomic_write(&path, b"temporary").unwrap();
+        restore(&path, None).unwrap();
+
+        assert!(!path.exists());
+    }
+}
