@@ -157,6 +157,7 @@ body {
 #app-shell {
   display: flex;
   height: calc(100vh - var(--titlebar-h));
+  -webkit-app-region: no-drag;
 }
 
 /* --- Sidebar --- */

@@ -2,10 +2,24 @@
    SwitchCraft — Frontend Application Logic
    ============================================ */
 
-const { invoke } = window.__TAURI__.core;
-const { check } = window.__TAURI__.updater || {};
-const { relaunch } = window.__TAURI__.process || {};
-const { enable, disable, isEnabled } = window.__TAURI__.autostart || {};
+function getTauri() {
+  return window.__TAURI__ || {};
+}
+
+const invoke = (...args) => {
+  const tauri = getTauri();
+  if (tauri.core && tauri.core.invoke) {
+    return tauri.core.invoke(...args);
+  }
+  console.warn('[SwitchCraft] Tauri core.invoke not ready yet');
+  return Promise.resolve();
+};
+
+const check = () => getTauri().updater?.check?.();
+const relaunch = () => getTauri().process?.relaunch?.();
+const enableAutostart = () => getTauri().autostart?.enable?.();
+const disableAutostart = () => getTauri().autostart?.disable?.();
+const isAutostartEnabled = () => getTauri().autostart?.isEnabled?.() || Promise.resolve(false);
 
 // ── State ──────────────────────────────────────
 let accounts = [];
@@ -198,9 +212,16 @@ function renderAccounts() {
           }
         }
 
+        const platformIcons = {
+          codex: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9A5.98 5.98 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.06 6.06 0 0 0-.75-7.07zm-9.02 12.61a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zm-9.66-5.58a4.47 4.47 0 0 1-.53-3l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.85-3.37v2.33a.08.08 0 0 1-.04.06L9.74 19.95a4.5 4.5 0 0 1-6.14-3.1zm-1.44-9.68a4.48 4.48 0 0 1 2.34-1.95v5.61a.79.79 0 0 0 .4.68l5.84 3.37-2.02 1.17a.07.07 0 0 1-.07 0L3.8 12.08a4.5 4.5 0 0 1-1.64-4.91zm15.11 4.67-5.84-3.37 2.02-1.17a.07.07 0 0 1 .07 0l4.83 2.8a4.5 4.5 0 0 1-.67 8.1v-5.68a.79.79 0 0 0-.41-.68zm2.01-3.02-.14-.09-4.78-2.78a.78.78 0 0 0-.78 0L9.41 6.39V4.06a.08.08 0 0 1 .03-.06l4.88-2.83a4.5 4.5 0 0 1 6.35 4.91zm-9.84-3.42a4.48 4.48 0 0 1 2.87 1.04l-.14.08-4.78 2.76a.79.79 0 0 0-.39.68v6.74l-2.02-1.17a.07.07 0 0 1-.04-.05V8.08a4.5 4.5 0 0 1 4.49-4.49zm1.1 5.88 2.71 1.57v3.13l-2.7 1.57-2.72-1.57V11.46l2.71-1.56z"/></svg>',
+          gemini: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 0C12 6.627 6.627 12 0 12c6.627 0 12 5.373 12 12 0-6.627 5.373-12 12-12-6.627 0-12-5.373-12-12z"/></svg>',
+          claude: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4.5 10.5C3.67 10.5 3 11.17 3 12s.67 1.5 1.5 1.5h1.76l-1.24 1.24c-.59.59-.59 1.54 0 2.12.59.59 1.54.59 2.12 0l1.24-1.24V17.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-1.88l1.24 1.24c.59.59 1.54.59 2.12 0 .59-.59.59-1.54 0-2.12l-1.24-1.24H19.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5h-1.88l1.24-1.24c.59-.59.59-1.54 0-2.12-.59-.59-1.54-.59-2.12 0L15.5 8.12V6.5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v1.76l-1.24-1.24c-.59-.59-1.54-.59-2.12 0-.59.59-.59 1.54 0 2.12l1.24 1.24H4.5z"/></svg>',
+        };
+        const iconSvg = platformIcons[account.platform] || initial;
+
         return `
           <div class="account-card ${isActive ? 'active' : ''}" data-id="${account.id}" title="Click to switch to ${escapeHtml(account.name)}">
-            <div class="account-avatar account-avatar--${account.platform}">${initial}</div>
+            <div class="account-avatar account-avatar--${account.platform}">${iconSvg}</div>
             <div class="account-info">
               <div class="account-name">${escapeHtml(account.name)}</div>
               <div class="account-meta">
@@ -405,7 +426,7 @@ async function deleteAccount() {
 // ── Settings ───────────────────────────────────
 async function loadSettings() {
   try {
-    const autoEnabled = await isEnabled();
+    const autoEnabled = await isAutostartEnabled();
     toggleAutostart.checked = autoEnabled;
   } catch {
     toggleAutostart.checked = false;
@@ -590,10 +611,10 @@ function setupEventListeners() {
   toggleAutostart.addEventListener('change', async () => {
     try {
       if (toggleAutostart.checked) {
-        await enable();
+        await enableAutostart();
         toast('SwitchCraft will start with your system');
       } else {
-        await disable();
+        await disableAutostart();
         toast('Autostart disabled');
       }
     } catch (err) {
