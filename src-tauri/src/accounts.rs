@@ -68,7 +68,16 @@ fn get_codex_auth_path() -> PathBuf {
 }
 
 fn get_gemini_tokens_path() -> PathBuf {
-    get_home_dir().join(".gemini").join("tokens.json")
+    let oauth_path = get_home_dir().join(".gemini").join("oauth_creds.json");
+    if oauth_path.exists() {
+        oauth_path
+    } else {
+        get_home_dir().join(".gemini").join("tokens.json")
+    }
+}
+
+fn get_gemini_accounts_path() -> PathBuf {
+    get_home_dir().join(".gemini").join("google_accounts.json")
 }
 
 fn get_claude_session_path() -> PathBuf {
@@ -213,8 +222,21 @@ pub fn switch_account(id: String) -> Result<Account, String> {
     // Write new credentials
     let creds = serde_json::to_string_pretty(&store.accounts[target_idx].credentials)
         .map_err(|e| format!("Failed to serialize credentials: {}", e))?;
-    fs::write(&auth_path, creds)
+    fs::write(&auth_path, &creds)
         .map_err(|e| format!("Failed to write credentials: {}", e))?;
+
+    // If Gemini/Antigravity, also sync google_accounts.json
+    if target_platform == Platform::Gemini {
+        let email = store.accounts[target_idx].credentials.get("email")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&store.accounts[target_idx].name);
+        let accounts_json = serde_json::json!({
+            "active": email,
+            "old": []
+        });
+        let acc_path = get_gemini_accounts_path();
+        let _ = fs::write(&acc_path, serde_json::to_string_pretty(&accounts_json).unwrap_or_default());
+    }
 
     // Update active status: deactivate others of same platform, activate target
     for account in &mut store.accounts {
