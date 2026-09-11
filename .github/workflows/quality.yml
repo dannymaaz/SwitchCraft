@@ -3,15 +3,12 @@ name: Quality
 on:
   pull_request:
     branches: [main]
-  push:
-    branches:
-      - 'feat/**'
 
 permissions:
   contents: read
 
 concurrency:
-  group: quality-${{ github.workflow }}-${{ github.ref }}
+  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
