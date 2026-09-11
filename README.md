@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-141417?style=for-the-badge&logo=linux&logoColor=d4a853" alt="Platform Support" />
   <img src="https://img.shields.io/badge/Architecture-Tauri%20v2%20%2B%20Rust-141417?style=for-the-badge&logo=rust&logoColor=d4a853" alt="Architecture" />
   <img src="https://img.shields.io/badge/License-MIT-141417?style=for-the-badge&logoColor=d4a853" alt="License" />
-  <img src="https://img.shields.io/badge/Version-1.0.0-141417?style=for-the-badge&logoColor=d4a853" alt="Version" />
+  <img src="https://img.shields.io/badge/Version-1.0.1-141417?style=for-the-badge&logoColor=d4a853" alt="Version" />
 </p>
 
 <p align="center">
@@ -90,9 +90,9 @@ flowchart LR
 
 Pre-compiled packages for each architecture are available directly from GitHub Releases:
 
-- **Windows (x64)**: [SwitchCraft_1.0.0_x64.msi](https://github.com/dannymaaz/SwitchCraft/releases/latest)
-- **macOS (Universal / Apple Silicon / Intel)**: [SwitchCraft_1.0.0.dmg](https://github.com/dannymaaz/SwitchCraft/releases/latest)
-- **Linux (Debian / Ubuntu / AppImage)**: [SwitchCraft_1.0.0_amd64.AppImage](https://github.com/dannymaaz/SwitchCraft/releases/latest) | [SwitchCraft_1.0.0_amd64.deb](https://github.com/dannymaaz/SwitchCraft/releases/latest)
+- **Windows (x64)**: [SwitchCraft_1.0.1_x64-setup.exe](https://github.com/dannymaaz/SwitchCraft/releases/latest) | [SwitchCraft_1.0.1_x64_en-US.msi](https://github.com/dannymaaz/SwitchCraft/releases/latest)
+- **macOS (Universal / Apple Silicon / Intel)**: [SwitchCraft_1.0.1_aarch64.dmg](https://github.com/dannymaaz/SwitchCraft/releases/latest)
+- **Linux (Debian / Ubuntu / AppImage)**: [SwitchCraft_1.0.1_amd64.AppImage](https://github.com/dannymaaz/SwitchCraft/releases/latest) | [SwitchCraft_1.0.1_amd64.deb](https://github.com/dannymaaz/SwitchCraft/releases/latest)
 
 ---
 

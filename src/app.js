@@ -127,7 +127,7 @@ const toastEl = $('#toast');
 const toastMessage = $('#toast-message');
 
 // ── Initialize ─────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+async function initApp() {
   await loadVersion();
   await loadAccounts();
   await loadSettings();
@@ -137,7 +137,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (settings.autoUpdate) {
     setTimeout(() => checkForUpdates(true), 2000);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 // ── Version ────────────────────────────────────
 async function loadVersion() {
@@ -541,8 +547,7 @@ function escapeHtml(text) {
 function setupEventListeners() {
   // Titlebar
   btnMinimize.addEventListener('click', async () => {
-    const { getCurrentWindow } = window.__TAURI__.window;
-    await getCurrentWindow().minimize();
+    await invoke('minimize_window');
   });
   btnClose.addEventListener('click', async () => {
     await invoke('hide_window');

@@ -14,6 +14,11 @@ fn hide_window(window: tauri::Window) {
 }
 
 #[tauri::command]
+fn minimize_window(window: tauri::Window) {
+    window.minimize().ok();
+}
+
+#[tauri::command]
 fn open_browser_url(url: String) -> Result<(), String> {
     open::that(&url).map_err(|e| format!("Failed to open URL: {}", e))
 }
@@ -33,6 +38,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_version,
             hide_window,
+            minimize_window,
             open_browser_url,
             accounts::get_accounts,
             accounts::add_account,

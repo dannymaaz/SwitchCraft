@@ -1,6 +1,6 @@
 [package]
 name = "switchcraft"
-version = "1.0.0"
+version = "1.0.1"
 description = "Switch between your Codex, Gemini, and Claude accounts instantly"
 authors = ["Danny Maaz"]
 edition = "2021"
