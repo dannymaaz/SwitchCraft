@@ -51,6 +51,9 @@ jobs:
       - name: Validate frontend JavaScript
         run: node --check src/app.js
 
+      - name: Generate and validate installer artwork
+        run: npm run assets
+
       - name: Validate branding source and generated platform icons
         run: npm run icons
 
