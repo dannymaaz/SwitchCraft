@@ -35,6 +35,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
 
       - name: Install Linux dependencies
         if: matrix.target == 'linux'
@@ -45,16 +47,27 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Validate tag and version consistency
+        run: npm run version:check
+        env:
+          EXPECTED_VERSION: ${{ github.ref_name }}
+
+      - name: Validate Rust formatting
+        run: npm run fmt:check
+
       - name: Generate branded installer artwork
         run: npm run assets
 
       - name: Generate branded application icons
         run: npm run icons
 
-      - name: Validate Rust core
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Validate Rust core (locked)
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
 
-      - name: Build Tauri app
+      - name: Run Rust tests (locked)
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+      - name: Build and upload Tauri artifacts
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,12 +77,24 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'SwitchCraft ${{ github.ref_name }}'
           releaseBody: |
-            Download the installer for your platform below.
+            Secure local session switching for supported AI developer tools.
 
-            **Windows:** `.msi` / NSIS bundle when generated
+            **Windows:** `.msi` / NSIS installer when generated
             **macOS:** `.dmg` disk image
             **Linux:** `.AppImage`, `.deb` and other generated packages
 
-            SwitchCraft updater artifacts are cryptographically signed by the Tauri updater pipeline. Native Windows Authenticode and Apple notarization require their respective platform signing credentials and are tracked separately.
-          releaseDraft: false
+            SwitchCraft updater artifacts are cryptographically signed by the Tauri updater pipeline. Native Windows Authenticode and Apple Developer ID/notarization remain separate platform-signing work.
+          releaseDraft: true
           prerelease: false
+
+  publish:
+    name: Publish verified release
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft after all platform builds succeed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --repo "${GITHUB_REPOSITORY}"
