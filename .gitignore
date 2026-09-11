@@ -1,0 +1,21 @@
+# Rust
+/src-tauri/target/
+
+# Node
+/node_modules/
+
+# Build output
+/dist/
+/.tauri/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/

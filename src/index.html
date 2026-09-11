@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwitchCraft</title>
+  <meta name="description" content="Switch between your Codex, Gemini, and Claude accounts instantly. One click, zero friction.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <!-- Custom Titlebar -->
+  <header id="titlebar" data-tauri-drag-region>
+    <div class="titlebar-left" data-tauri-drag-region>
+      <svg class="titlebar-icon" viewBox="0 0 512 512" width="18" height="18">
+        <defs>
+          <linearGradient id="tGold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#f0d48a"/>
+            <stop offset="100%" style="stop-color:#d4a853"/>
+          </linearGradient>
+        </defs>
+        <g transform="translate(256, 200)">
+          <path d="M-80,0 L50,0" stroke="url(#tGold)" stroke-width="32" stroke-linecap="round" fill="none"/>
+          <path d="M30,-30 L60,0 L30,30" stroke="url(#tGold)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <g transform="translate(256, 312)">
+          <path d="M80,0 L-50,0" stroke="url(#tGold)" stroke-width="32" stroke-linecap="round" fill="none"/>
+          <path d="M-30,-30 L-60,0 L-30,30" stroke="url(#tGold)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <rect x="244" y="244" width="24" height="24" rx="4" transform="rotate(45 256 256)" fill="url(#tGold)"/>
+      </svg>
+      <span class="titlebar-title" data-tauri-drag-region>SwitchCraft</span>
+    </div>
+    <div class="titlebar-controls">
+      <button id="btn-minimize" class="titlebar-btn" aria-label="Minimize">
+        <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+      </button>
+      <button id="btn-close" class="titlebar-btn titlebar-btn--close" aria-label="Close">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div id="app-shell">
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar">
+      <div class="nav-items">
+        <button class="nav-btn active" data-page="accounts" aria-label="Accounts">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>Accounts</span>
+        </button>
+        <button class="nav-btn" data-page="settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>Settings</span>
+        </button>
+        <button class="nav-btn" data-page="about" aria-label="About">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <span>About</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Content Area -->
+    <main id="content">
+      <!-- Update Banner -->
+      <div id="update-banner" class="update-banner hidden">
+        <span>A new version is available</span>
+        <button id="btn-update" class="btn btn--gold btn--sm">Update now</button>
+      </div>
+
+      <!-- Accounts Page -->
+      <section id="page-accounts" class="page active">
+        <div class="page-header">
+          <h1>Your Accounts</h1>
+          <button id="btn-add-account" class="btn btn--gold btn--sm">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add
+          </button>
+        </div>
+
+        <!-- Platform Sections -->
+        <div id="platform-sections">
+          <!-- Codex Section -->
+          <div class="platform-section" data-platform="codex">
+            <div class="platform-header">
+              <div class="platform-badge platform-badge--codex">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M12 8v8"/></svg>
+                <span>Codex</span>
+              </div>
+              <span class="platform-count" data-count="codex">0 profiles</span>
+            </div>
+            <div class="account-list" data-list="codex"></div>
+          </div>
+
+          <!-- Gemini / Antigravity Section -->
+          <div class="platform-section" data-platform="gemini">
+            <div class="platform-header">
+              <div class="platform-badge platform-badge--gemini">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span>Gemini</span>
+              </div>
+              <span class="platform-count" data-count="gemini">0 profiles</span>
+            </div>
+            <div class="account-list" data-list="gemini"></div>
+          </div>
+
+          <!-- Claude Section -->
+          <div class="platform-section" data-platform="claude">
+            <div class="platform-header">
+              <div class="platform-badge platform-badge--claude">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                <span>Claude</span>
+              </div>
+              <span class="platform-count" data-count="claude">0 profiles</span>
+            </div>
+            <div class="account-list" data-list="claude"></div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state">
+          <svg class="empty-icon" viewBox="0 0 512 512" width="48" height="48">
+            <defs><linearGradient id="eGold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#f0d48a;stop-opacity:0.4"/><stop offset="100%" style="stop-color:#d4a853;stop-opacity:0.4"/></linearGradient></defs>
+            <g transform="translate(256, 200)"><path d="M-80,0 L50,0" stroke="url(#eGold)" stroke-width="28" stroke-linecap="round" fill="none"/><path d="M30,-30 L60,0 L30,30" stroke="url(#eGold)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g>
+            <g transform="translate(256, 312)"><path d="M80,0 L-50,0" stroke="url(#eGold)" stroke-width="28" stroke-linecap="round" fill="none"/><path d="M-30,-30 L-60,0 L-30,30" stroke="url(#eGold)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g>
+          </svg>
+          <h2>No accounts yet</h2>
+          <p>Add your first account to start switching in one click.</p>
+          <button id="btn-add-first" class="btn btn--gold">Add your first account</button>
+        </div>
+      </section>
+
+      <!-- Settings Page -->
+      <section id="page-settings" class="page">
+        <div class="page-header">
+          <h1>Settings</h1>
+        </div>
+        <div class="settings-list">
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Launch at startup</span>
+              <span class="setting-desc">Run SwitchCraft silently when your computer starts</span>
+            </div>
+            <label class="toggle" for="toggle-autostart">
+              <input type="checkbox" id="toggle-autostart">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Auto-check for updates</span>
+              <span class="setting-desc">Check for new versions when the app starts</span>
+            </div>
+            <label class="toggle" for="toggle-autoupdate">
+              <input type="checkbox" id="toggle-autoupdate" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Switch notifications</span>
+              <span class="setting-desc">Show a confirmation when accounts are switched</span>
+            </div>
+            <label class="toggle" for="toggle-notifications">
+              <input type="checkbox" id="toggle-notifications" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="divider"></div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Check for updates</span>
+              <span class="setting-desc">Manually check if a newer version is available</span>
+            </div>
+            <button id="btn-manual-update" class="btn btn--outline btn--sm">Check now</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- About Page -->
+      <section id="page-about" class="page">
+        <div class="about-content">
+          <div class="about-logo">
+            <svg viewBox="0 0 512 512" width="64" height="64">
+              <defs>
+                <linearGradient id="aGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#f0d48a"/>
+                  <stop offset="50%" style="stop-color:#d4a853"/>
+                  <stop offset="100%" style="stop-color:#b8860b"/>
+                </linearGradient>
+              </defs>
+              <g transform="translate(256, 200)">
+                <path d="M-80,0 L50,0" stroke="url(#aGold)" stroke-width="28" stroke-linecap="round" fill="none"/>
+                <path d="M30,-30 L60,0 L30,30" stroke="url(#aGold)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </g>
+              <g transform="translate(256, 312)">
+                <path d="M80,0 L-50,0" stroke="url(#aGold)" stroke-width="28" stroke-linecap="round" fill="none"/>
+                <path d="M-30,-30 L-60,0 L-30,30" stroke="url(#aGold)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </g>
+              <rect x="244" y="244" width="24" height="24" rx="4" transform="rotate(45 256 256)" fill="url(#aGold)"/>
+            </svg>
+          </div>
+          <h1 class="about-title">SwitchCraft</h1>
+          <p class="about-tagline">Switch accounts in a flick.</p>
+          <div class="about-version">
+            <span id="version-number">v1.0.0</span>
+          </div>
+          <div class="about-links">
+            <button id="btn-github" class="btn btn--outline btn--sm">View on GitHub</button>
+          </div>
+          <div class="about-credit">
+            <span>Powered by</span>
+            <strong>Danny Maaz</strong>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Add Account Modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Add Account</h2>
+        <button id="btn-modal-close" class="modal-close" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 10 10"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="input-name">Profile name</label>
+          <input type="text" id="input-name" placeholder="e.g. Work, Personal, School" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="input-platform">Platform</label>
+          <div class="platform-picker">
+            <button class="platform-pick active" data-pick="codex">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M12 8v8"/></svg>
+              Codex
+            </button>
+            <button class="platform-pick" data-pick="gemini">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Gemini
+            </button>
+            <button class="platform-pick" data-pick="claude">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              Claude
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="input-creds">Credentials (JSON)</label>
+          <textarea id="input-creds" rows="5" placeholder='Paste your auth.json or tokens.json content here'></textarea>
+          <span class="form-hint">Or import your currently active session below</span>
+        </div>
+
+        <!-- Usage Configuration -->
+        <div class="form-group">
+          <label>Usage tracking <span class="optional">(optional)</span></label>
+          <div class="usage-fields">
+            <div class="usage-row">
+              <label for="input-plan">Plan name</label>
+              <input type="text" id="input-plan" placeholder="e.g. Pro, Plus, Free">
+            </div>
+            <div class="usage-row-pair">
+              <div class="usage-row">
+                <label for="input-weekly-limit">Weekly limit</label>
+                <input type="number" id="input-weekly-limit" placeholder="e.g. 500" min="0">
+              </div>
+              <div class="usage-row">
+                <label for="input-hourly-limit">Hourly limit</label>
+                <input type="number" id="input-hourly-limit" placeholder="e.g. 40" min="0">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-import" class="btn btn--outline">Import current session</button>
+        <button id="btn-save" class="btn btn--gold">Save profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div id="confirm-overlay" class="modal-overlay hidden">
+    <div class="modal modal--sm" role="alertdialog" aria-labelledby="confirm-title">
+      <div class="modal-header">
+        <h2 id="confirm-title">Remove account?</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message">This profile will be permanently deleted. Your actual credentials on disk won't be affected.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-confirm-cancel" class="btn btn--outline">Cancel</button>
+        <button id="btn-confirm-delete" class="btn btn--danger">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden">
+    <span id="toast-message"></span>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
