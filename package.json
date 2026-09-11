@@ -7,7 +7,8 @@
   "private": true,
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "npm run icons && tauri build",
+    "icons": "tauri icon src/logo.svg",
     "check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "tauri": "tauri"
