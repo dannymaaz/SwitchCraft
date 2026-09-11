@@ -19,11 +19,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let _tray = TrayIconBuilder::new()
         .menu(&menu)
+        .show_menu_on_left_click(false)
         .tooltip("SwitchCraft — Account Switcher")
         .on_menu_event(move |app, event| {
             match event.id().as_ref() {
                 "show" => {
                     if let Some(window) = app.get_webview_window("main") {
+                        window.unminimize().ok();
                         window.show().ok();
                         window.set_focus().ok();
                         window.center().ok();
@@ -31,6 +33,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 "check_update" => {
                     if let Some(window) = app.get_webview_window("main") {
+                        window.unminimize().ok();
                         window.show().ok();
                         window.set_focus().ok();
                         window.eval("window.__checkUpdate && window.__checkUpdate()").ok();
@@ -43,19 +46,30 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
         })
         .on_tray_icon_event(|tray, event| {
-            if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
-                if button == tauri::tray::MouseButton::Left {
+            match event {
+                tauri::tray::TrayIconEvent::Click {
+                    button: tauri::tray::MouseButton::Left,
+                    button_state: tauri::tray::MouseButtonState::Up,
+                    ..
+                }
+                | tauri::tray::TrayIconEvent::DoubleClick {
+                    button: tauri::tray::MouseButton::Left,
+                    ..
+                } => {
                     let app = tray.app_handle();
                     if let Some(window) = app.get_webview_window("main") {
-                        if window.is_visible().unwrap_or(false) {
+                        let is_visible = window.is_visible().unwrap_or(false);
+                        if is_visible {
                             window.hide().ok();
                         } else {
+                            window.unminimize().ok();
                             window.show().ok();
                             window.set_focus().ok();
                             window.center().ok();
                         }
                     }
                 }
+                _ => {}
             }
         })
         .build(app)?;

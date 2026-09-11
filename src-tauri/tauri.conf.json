@@ -33,6 +33,10 @@
   },
   "bundle": {
     "active": true,
+    "shortDescription": "Instant multi-account switcher for Codex, Gemini, and Claude",
+    "longDescription": "SwitchCraft is an ultra-fast, background-resident account manager for AI developers. Switch between multiple profiles across Codex, Google Gemini/Antigravity, and Anthropic Claude in a single click.",
+    "copyright": "Copyright (c) 2026 Danny Maaz",
+    "publisher": "Danny Maaz",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

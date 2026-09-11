@@ -1,27 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f0d48a;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#d4a853;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#b8860b;stop-opacity:1" />
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff0be"/>
+      <stop offset="30%" stop-color="#eac46a"/>
+      <stop offset="70%" stop-color="#c99732"/>
+      <stop offset="100%" stop-color="#966c14"/>
     </linearGradient>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a1a1a;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0a0a0a;stop-opacity:1" />
+    <linearGradient id="goldAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe699"/>
+      <stop offset="100%" stop-color="#b3821a"/>
     </linearGradient>
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
   </defs>
-  <!-- Background rounded square -->
-  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="6"/>
-  <!-- Top arrow (pointing right) -->
-  <g transform="translate(256, 200)">
-    <path d="M-80,0 L50,0" stroke="url(#goldGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
-    <path d="M30,-30 L60,0 L30,30" stroke="url(#goldGrad)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Top Arrow (Left to Right) with rounded fluid geometry -->
+  <g filter="url(#subtleGlow)">
+    <path d="M 120 185 L 340 185 C 365 185 385 165 385 140 C 385 115 365 95 340 95 L 320 95" 
+          stroke="url(#goldGradient)" 
+          stroke-width="42" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none" />
+    
+    <path d="M 310 135 L 375 185 L 310 235" 
+          stroke="url(#goldGradient)" 
+          stroke-width="42" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none" />
   </g>
-  <!-- Bottom arrow (pointing left) -->
-  <g transform="translate(256, 312)">
-    <path d="M80,0 L-50,0" stroke="url(#goldGrad)" stroke-width="28" stroke-linecap="round" fill="none"/>
-    <path d="M-30,-30 L-60,0 L-30,30" stroke="url(#goldGrad)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Bottom Arrow (Right to Left) with rounded fluid geometry -->
+  <g filter="url(#subtleGlow)">
+    <path d="M 392 327 L 172 327 C 147 327 127 347 127 372 C 127 397 147 417 172 417 L 192 417" 
+          stroke="url(#goldGradient)" 
+          stroke-width="42" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none" />
+    
+    <path d="M 202 277 L 137 327 L 202 377" 
+          stroke="url(#goldGradient)" 
+          stroke-width="42" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none" />
   </g>
-  <!-- Center diamond accent -->
-  <rect x="244" y="244" width="24" height="24" rx="4" transform="rotate(45 256 256)" fill="url(#goldGrad)"/>
+
+  <!-- Central Energy Core (Diamond Switch Axis) -->
+  <rect x="236" y="236" width="40" height="40" rx="8" 
+        transform="rotate(45 256 256)" 
+        fill="url(#goldAccent)" />
 </svg>
