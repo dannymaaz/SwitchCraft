@@ -31,6 +31,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -39,10 +40,16 @@ jobs:
         if: matrix.target == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev pkg-config
 
       - name: Install npm dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Generate branded application icons
+        run: npm run tauri icon src/logo.svg
+
+      - name: Validate Rust core
+        run: cargo check --manifest-path src-tauri/Cargo.toml
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -56,11 +63,10 @@ jobs:
           releaseBody: |
             Download the installer for your platform below.
 
-            **Windows:** `.msi` installer
+            **Windows:** `.msi` / NSIS bundle when generated
             **macOS:** `.dmg` disk image
-            **Linux:** `.AppImage` or `.deb` package
+            **Linux:** `.AppImage`, `.deb` and other generated packages
 
-            ---
-            This release was built and signed automatically.
+            SwitchCraft updater artifacts are cryptographically signed by the Tauri updater pipeline. Native Windows Authenticode and Apple notarization require their respective platform signing credentials and are tracked separately.
           releaseDraft: false
           prerelease: false
