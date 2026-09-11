@@ -276,9 +276,7 @@ fn snapshot_recovery_target(target: &RecoveryTarget) -> Result<RecoveryTarget, S
 
 fn apply_mutation(mutation: &PlannedMutation) -> Result<(), String> {
     match mutation {
-        PlannedMutation::File { path, value, .. } => {
-            atomic_fs::restore(path, value.as_deref())
-        }
+        PlannedMutation::File { path, value, .. } => atomic_fs::restore(path, value.as_deref()),
         PlannedMutation::Keyring {
             service,
             account,
@@ -539,6 +537,11 @@ pub fn switch_account(id: String) -> Result<Account, String> {
         return Ok(target.view());
     }
 
+    // Recovery metadata is read before touching provider state. If the local vault is
+    // unavailable, the switch aborts while the currently active session is still intact.
+    let recovery_key = secure_store::recovery_manifest_key(&target.platform.to_string());
+    let previous_manifest = secure_store::try_get_json(&recovery_key)?;
+
     let credentials = load_credentials(&target)?;
     let mutations = providers::build_mutations(
         &target.platform,
@@ -547,8 +550,6 @@ pub fn switch_account(id: String) -> Result<Account, String> {
     )?;
     let recovery = apply_transaction(&mutations)?;
 
-    let recovery_key = secure_store::recovery_manifest_key(&target.platform.to_string());
-    let previous_manifest = secure_store::try_get_json(&recovery_key)?;
     if let Err(err) = persist_recovery_manifest(&target.platform, &recovery) {
         let rollback = rollback_targets(&recovery.targets, recovery.targets.len());
         return match rollback {
@@ -596,6 +597,10 @@ pub fn switch_account(id: String) -> Result<Account, String> {
 pub fn restore_last_session(platform: String) -> Result<(), String> {
     let platform = providers::parse_platform(&platform)?;
     let mut store = load_store()?;
+
+    // Snapshot the current recovery pointer before provider state is changed.
+    let recovery_key = secure_store::recovery_manifest_key(&platform.to_string());
+    let previous_manifest_value = secure_store::try_get_json(&recovery_key)?;
     let manifest = load_recovery_manifest(&platform)?;
 
     let mut current = Vec::with_capacity(manifest.targets.len());
@@ -620,8 +625,6 @@ pub fn restore_last_session(platform: String) -> Result<(), String> {
         captured_at: Utc::now().to_rfc3339(),
         targets: current.clone(),
     };
-    let recovery_key = secure_store::recovery_manifest_key(&platform.to_string());
-    let previous_manifest_value = secure_store::try_get_json(&recovery_key)?;
     if let Err(err) = persist_recovery_manifest(&platform, &reverse_manifest) {
         let rollback = rollback_targets(&current, current.len());
         return match rollback {
