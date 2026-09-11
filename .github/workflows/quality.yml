@@ -3,12 +3,15 @@ name: Quality
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,6 +41,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
 
       - name: Install Linux dependencies
         if: matrix.target == 'linux'
@@ -48,6 +53,12 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
+      - name: Validate release metadata consistency
+        run: npm run version:check
+
+      - name: Validate Rust formatting
+        run: npm run fmt:check
+
       - name: Validate frontend JavaScript
         run: node --check src/app.js
 
@@ -57,8 +68,8 @@ jobs:
       - name: Validate branding source and generated platform icons
         run: npm run icons
 
-      - name: Cargo check
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Cargo check (locked)
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
 
-      - name: Cargo test
-        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Cargo test (locked)
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
