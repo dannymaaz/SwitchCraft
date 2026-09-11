@@ -1,0 +1,85 @@
+name: Package Smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: package (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            target: linux
+          - platform: macos-latest
+            target: macos
+          - platform: windows-latest
+            target: windows
+
+    runs-on: ${{ matrix.platform }}
+    env:
+      CARGO_INCREMENTAL: 0
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev pkg-config
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate installer artwork
+        run: npm run assets
+
+      - name: Generate platform icons
+        run: npm run icons
+
+      - name: Build production bundles
+        run: npx tauri build
+
+      - name: Verify bundle output (Unix)
+        if: matrix.target != 'windows'
+        shell: bash
+        run: |
+          test -d src-tauri/target/release/bundle
+          find src-tauri/target/release/bundle -type f -maxdepth 4 -print
+          test -n "$(find src-tauri/target/release/bundle -type f -maxdepth 4 -print -quit)"
+
+      - name: Verify bundle output (Windows)
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'src-tauri/target/release/bundle')) { throw 'Bundle directory was not generated.' }
+          $files = Get-ChildItem 'src-tauri/target/release/bundle' -Recurse -File
+          $files | Select-Object FullName, Length
+          if ($files.Count -eq 0) { throw 'No package artifacts were generated.' }
+
+      - name: Upload package smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: switchcraft-${{ matrix.target }}-package-smoke
+          path: src-tauri/target/release/bundle/**
+          if-no-files-found: error
+          retention-days: 7
