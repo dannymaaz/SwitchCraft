@@ -1,4 +1,7 @@
 mod accounts;
+mod atomic_fs;
+mod providers;
+mod secure_store;
 mod tray;
 
 use tauri::Manager;
@@ -20,7 +23,16 @@ fn minimize_window(window: tauri::Window) {
 
 #[tauri::command]
 fn open_browser_url(url: String) -> Result<(), String> {
-    open::that(&url).map_err(|e| format!("Failed to open URL: {}", e))
+    const ALLOWED_URLS: [&str; 2] = [
+        "https://github.com/dannymaaz/SwitchCraft",
+        "https://github.com/dannymaaz/SwitchCraft/releases/latest",
+    ];
+
+    if !ALLOWED_URLS.iter().any(|allowed| *allowed == url) {
+        return Err("This URL is not in SwitchCraft's allowlist".into());
+    }
+
+    open::that(&url).map_err(|e| format!("Failed to open URL: {e}"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -45,15 +57,15 @@ pub fn run() {
             accounts::delete_account,
             accounts::switch_account,
             accounts::import_current_account,
+            accounts::restore_last_session,
             accounts::update_usage,
             accounts::get_active_accounts,
             accounts::rename_account,
+            accounts::get_security_summary,
         ])
         .setup(|app| {
-            // Setup system tray
             tray::setup_tray(app.handle())?;
 
-            // Hide window on close (minimize to tray instead)
             let window = app.get_webview_window("main").unwrap();
             let window_clone = window.clone();
             window.on_window_event(move |event| {
@@ -63,13 +75,12 @@ pub fn run() {
                 }
             });
 
-            // If launched with --hidden flag, keep window hidden (autostart behavior)
             let args: Vec<String> = std::env::args().collect();
             if !args.contains(&"--hidden".to_string()) {
-                let w = app.get_webview_window("main").unwrap();
-                w.show().ok();
-                w.center().ok();
-                w.set_focus().ok();
+                let window = app.get_webview_window("main").unwrap();
+                window.show().ok();
+                window.center().ok();
+                window.set_focus().ok();
             }
 
             Ok(())

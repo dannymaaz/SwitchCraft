@@ -1,13 +1,17 @@
 {
   "name": "switchcraft",
-  "version": "1.0.1",
-  "description": "Switch between your Codex, Gemini, and Claude accounts instantly",
+  "version": "1.1.0",
+  "description": "Securely switch local AI developer sessions across supported clients",
   "author": "Danny Maaz",
   "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "npm run assets && npm run icons && tauri build",
+    "assets": "node scripts/generate-installer-assets.mjs",
+    "icons": "tauri icon src/logo.svg",
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "tauri": "tauri"
   },
   "devDependencies": {
