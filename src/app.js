@@ -6,15 +6,46 @@ const { invoke } = window.__TAURI__.core;
 const { check } = window.__TAURI__.updater || {};
 const { relaunch } = window.__TAURI__.process || {};
 const { enable, disable, isEnabled } = window.__TAURI__.autostart || {};
-const { open } = window.__TAURI__.shell || {};
 
 // ── State ──────────────────────────────────────
 let accounts = [];
 let selectedPlatform = 'codex';
+let selectedAuthTab = 'key';
 let deleteTargetId = null;
+let showPassword = false;
 let settings = {
   autoUpdate: true,
   notifications: true,
+};
+
+const PLATFORM_CONFIG = {
+  codex: {
+    name: 'Codex / OpenAI',
+    keyLabel: 'OpenAI API Key / Token',
+    keyPlaceholder: 'sk-proj-... or personal API token',
+    keyHint: 'Used for Codex and OpenAI developer tools.',
+    browserTitle: 'Sign in to OpenAI / Codex',
+    browserDesc: 'Open OpenAI or ChatGPT in your browser to sign in, then capture the session below.',
+    loginUrl: 'https://platform.openai.com/api-keys',
+  },
+  gemini: {
+    name: 'Gemini / Antigravity',
+    keyLabel: 'Google AI Studio Key / Token',
+    keyPlaceholder: 'AIzaSy... or OAuth session token',
+    keyHint: 'Works seamlessly with Google Antigravity and Gemini CLI.',
+    browserTitle: 'Sign in to Google AI / Antigravity',
+    browserDesc: 'Open Google AI Studio to authenticate or generate an API key, then capture session.',
+    loginUrl: 'https://aistudio.google.com/app/apikey',
+  },
+  claude: {
+    name: 'Claude / Anthropic',
+    keyLabel: 'Anthropic API Key / Session Key',
+    keyPlaceholder: 'sk-ant-... or session token',
+    keyHint: 'Works with Claude Desktop and Anthropic developer tools.',
+    browserTitle: 'Sign in to Claude / Anthropic',
+    browserDesc: 'Open Claude Console or Claude.ai to sign in, then capture the session.',
+    loginUrl: 'https://console.anthropic.com/settings/keys',
+  },
 };
 
 // ── DOM References ─────────────────────────────
@@ -39,7 +70,18 @@ const btnAddFirst = $('#btn-add-first');
 const modalOverlay = $('#modal-overlay');
 const btnModalClose = $('#btn-modal-close');
 const inputName = $('#input-name');
+const inputApiKey = $('#input-api-key');
 const inputCreds = $('#input-creds');
+const labelApiKey = $('#label-api-key');
+const hintApiKey = $('#hint-api-key');
+const btnToggleKeyVisibility = $('#btn-toggle-key-visibility');
+const browserLoginTitle = $('#browser-login-title');
+const browserLoginDesc = $('#browser-login-desc');
+const btnLaunchBrowserLogin = $('#btn-launch-browser-login');
+const btnImportBrowser = $('#btn-import-browser');
+const authTabs = $$('.auth-tab');
+const authTabContents = $$('.auth-tab-content');
+
 const inputPlan = $('#input-plan');
 const inputWeeklyLimit = $('#input-weekly-limit');
 const inputHourlyLimit = $('#input-hourly-limit');
@@ -110,7 +152,6 @@ function renderAccounts() {
   platforms.forEach((platform) => {
     const list = $(`[data-list="${platform}"]`);
     const count = $(`[data-count="${platform}"]`);
-    const section = $(`.platform-section[data-platform="${platform}"]`);
     const filtered = accounts.filter((a) => a.platform === platform);
 
     count.textContent = `${filtered.length} profile${filtered.length !== 1 ? 's' : ''}`;
@@ -158,7 +199,7 @@ function renderAccounts() {
         }
 
         return `
-          <div class="account-card ${isActive ? 'active' : ''}" data-id="${account.id}" title="Click to switch to ${account.name}">
+          <div class="account-card ${isActive ? 'active' : ''}" data-id="${account.id}" title="Click to switch to ${escapeHtml(account.name)}">
             <div class="account-avatar account-avatar--${account.platform}">${initial}</div>
             <div class="account-info">
               <div class="account-name">${escapeHtml(account.name)}</div>
@@ -171,7 +212,7 @@ function renderAccounts() {
               ${usageHTML}
             </div>
             <div class="account-actions">
-              <button class="action-btn action-btn--delete" data-delete="${account.id}" title="Remove profile" aria-label="Remove ${account.name}">
+              <button class="action-btn action-btn--delete" data-delete="${account.id}" title="Remove profile" aria-label="Remove ${escapeHtml(account.name)}">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
             </div>
@@ -180,19 +221,13 @@ function renderAccounts() {
       .join('');
   });
 
-  // Show/hide empty state
-  if (totalCount === 0) {
-    emptyState.classList.remove('hidden');
-    platformSections.style.display = 'none';
-  } else {
-    emptyState.classList.add('hidden');
-    platformSections.style.display = 'block';
-  }
+  // Toggle empty state vs platform sections
+  platformSections.classList.toggle('hidden', totalCount === 0);
+  emptyState.classList.toggle('hidden', totalCount > 0);
 
-  // Attach card click handlers
+  // Attach card click handlers for switching
   document.querySelectorAll('.account-card[data-id]').forEach((card) => {
     card.addEventListener('click', (e) => {
-      // Don't switch if clicking delete button
       if (e.target.closest('.action-btn')) return;
       switchAccount(card.dataset.id);
     });
@@ -225,25 +260,75 @@ async function switchAccount(id) {
   }
 }
 
+function updateModalForPlatform() {
+  const cfg = PLATFORM_CONFIG[selectedPlatform] || PLATFORM_CONFIG.codex;
+  labelApiKey.textContent = cfg.keyLabel;
+  inputApiKey.placeholder = cfg.keyPlaceholder;
+  hintApiKey.textContent = cfg.keyHint;
+  browserLoginTitle.textContent = cfg.browserTitle;
+  browserLoginDesc.textContent = cfg.browserDesc;
+}
+
+function selectAuthTab(tab) {
+  selectedAuthTab = tab;
+  authTabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+  authTabContents.forEach((c) => c.classList.toggle('active', c.id === `tab-content-${tab}`));
+}
+
 async function addAccount() {
   const name = inputName.value.trim();
-  const credsRaw = inputCreds.value.trim();
 
   if (!name) {
     toast('Enter a profile name', true);
-    return;
-  }
-
-  if (!credsRaw) {
-    toast('Paste your credentials or import current session', true);
+    inputName.focus();
     return;
   }
 
   let credentials;
-  try {
-    credentials = JSON.parse(credsRaw);
-  } catch {
-    toast('Invalid JSON — check your credentials format', true);
+
+  if (selectedAuthTab === 'key') {
+    const key = inputApiKey.value.trim();
+    if (!key) {
+      toast('Enter an API key or session token', true);
+      inputApiKey.focus();
+      return;
+    }
+
+    if (selectedPlatform === 'codex') {
+      credentials = {
+        apiKey: key,
+        auth_mode: 'api_key',
+        created_at: new Date().toISOString(),
+      };
+    } else if (selectedPlatform === 'gemini') {
+      credentials = {
+        apiKey: key,
+        auth_mode: 'api_key',
+        created_at: new Date().toISOString(),
+      };
+    } else if (selectedPlatform === 'claude') {
+      credentials = {
+        apiKey: key,
+        sessionKey: key,
+        auth_mode: 'api_key',
+        created_at: new Date().toISOString(),
+      };
+    }
+  } else if (selectedAuthTab === 'json') {
+    const credsRaw = inputCreds.value.trim();
+    if (!credsRaw) {
+      toast('Paste your credentials JSON', true);
+      inputCreds.focus();
+      return;
+    }
+    try {
+      credentials = JSON.parse(credsRaw);
+    } catch {
+      toast('Invalid JSON — check your format', true);
+      return;
+    }
+  } else if (selectedAuthTab === 'browser') {
+    await importCurrentSession();
     return;
   }
 
@@ -285,6 +370,7 @@ async function importCurrentSession() {
   const name = inputName.value.trim();
   if (!name) {
     toast('Enter a profile name first', true);
+    inputName.focus();
     return;
   }
 
@@ -295,7 +381,7 @@ async function importCurrentSession() {
     });
 
     closeModal();
-    toast(`Imported current ${selectedPlatform} session as "${name}"`);
+    toast(`Imported active ${selectedPlatform} session as "${name}"`);
     await loadAccounts();
   } catch (err) {
     toast(`Import failed: ${err}`, true);
@@ -325,7 +411,6 @@ async function loadSettings() {
     toggleAutostart.checked = false;
   }
 
-  // Load from localStorage for simple settings
   const saved = localStorage.getItem('switchcraft_settings');
   if (saved) {
     settings = { ...settings, ...JSON.parse(saved) };
@@ -352,7 +437,7 @@ async function checkForUpdates(silent = false) {
       updateBanner.classList.remove('hidden');
       if (!silent) toast('New version available!');
     } else {
-      if (!silent) toast('You\'re on the latest version');
+      if (!silent) toast("You're on the latest version");
     }
   } catch (err) {
     if (!silent) toast(`Update check failed: ${err}`, true);
@@ -368,12 +453,10 @@ async function installUpdate() {
       toast('Downloading update...');
       await update.downloadAndInstall();
       toast('Update installed! Restarting...');
-      setTimeout(async () => {
-        if (relaunch) await relaunch();
-      }, 1500);
+      if (relaunch) await relaunch();
     }
   } catch (err) {
-    toast(`Update failed: ${err}`, true);
+    toast(`Update install failed: ${err}`, true);
   }
 }
 
@@ -389,12 +472,20 @@ function navigateTo(page) {
 // ── Modal ──────────────────────────────────────
 function openModal() {
   inputName.value = '';
+  inputApiKey.value = '';
   inputCreds.value = '';
   inputPlan.value = '';
   inputWeeklyLimit.value = '';
   inputHourlyLimit.value = '';
   selectedPlatform = 'codex';
+  showPassword = false;
+  inputApiKey.type = 'password';
+  btnToggleKeyVisibility.textContent = '👁️ Show';
+
   platformPicks.forEach((p) => p.classList.toggle('active', p.dataset.pick === 'codex'));
+  selectAuthTab('key');
+  updateModalForPlatform();
+
   modalOverlay.classList.remove('hidden');
   inputName.focus();
 }
@@ -449,11 +540,38 @@ function setupEventListeners() {
     if (e.target === modalOverlay) closeModal();
   });
 
+  // Auth tabs
+  authTabs.forEach((tab) => {
+    tab.addEventListener('click', () => selectAuthTab(tab.dataset.tab));
+  });
+
+  // Toggle key visibility
+  btnToggleKeyVisibility.addEventListener('click', () => {
+    showPassword = !showPassword;
+    inputApiKey.type = showPassword ? 'text' : 'password';
+    btnToggleKeyVisibility.textContent = showPassword ? '🙈 Hide' : '👁️ Show';
+  });
+
+  // Launch official web login
+  btnLaunchBrowserLogin.addEventListener('click', async () => {
+    const cfg = PLATFORM_CONFIG[selectedPlatform] || PLATFORM_CONFIG.codex;
+    try {
+      await invoke('open_browser_url', { url: cfg.loginUrl });
+      toast(`Opening ${cfg.name} login...`);
+    } catch (err) {
+      toast(`Could not open browser: ${err}`, true);
+    }
+  });
+
+  // Capture session from browser tab button
+  btnImportBrowser.addEventListener('click', importCurrentSession);
+
   // Platform picker
   platformPicks.forEach((pick) => {
     pick.addEventListener('click', () => {
       selectedPlatform = pick.dataset.pick;
       platformPicks.forEach((p) => p.classList.toggle('active', p === pick));
+      updateModalForPlatform();
     });
   });
 
@@ -494,8 +612,12 @@ function setupEventListeners() {
   btnUpdate.addEventListener('click', installUpdate);
 
   // GitHub link
-  btnGithub.addEventListener('click', () => {
-    if (open) open('https://github.com/dannymaaz/SwitchCraft');
+  btnGithub.addEventListener('click', async () => {
+    try {
+      await invoke('open_browser_url', { url: 'https://github.com/dannymaaz/SwitchCraft' });
+    } catch {
+      window.open('https://github.com/dannymaaz/SwitchCraft', '_blank');
+    }
   });
 
   // Keyboard shortcuts

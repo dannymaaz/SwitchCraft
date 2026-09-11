@@ -264,9 +264,54 @@
           </div>
         </div>
         <div class="form-group">
-          <label for="input-creds">Credentials (JSON)</label>
-          <textarea id="input-creds" rows="5" placeholder='Paste your auth.json or tokens.json content here'></textarea>
-          <span class="form-hint">Or import your currently active session below</span>
+          <label>Authentication Method</label>
+          <div class="auth-tabs">
+            <button type="button" class="auth-tab active" data-tab="key">🔑 API Key / Token</button>
+            <button type="button" class="auth-tab" data-tab="browser">🌐 Browser Login</button>
+            <button type="button" class="auth-tab" data-tab="json">📋 Raw JSON</button>
+          </div>
+        </div>
+
+        <!-- Tab 1: API Key / Token -->
+        <div id="tab-content-key" class="auth-tab-content active">
+          <div class="form-group">
+            <div class="label-with-action">
+              <label for="input-api-key" id="label-api-key">API Key / Token</label>
+              <button type="button" id="btn-toggle-key-visibility" class="text-btn" title="Toggle visibility">👁️ Show</button>
+            </div>
+            <div class="secure-input-wrapper">
+              <input type="password" id="input-api-key" placeholder="Enter key (e.g. sk-..., AIzaSy..., or session token)" autocomplete="off">
+            </div>
+            <span class="form-hint" id="hint-api-key">Your key is stored encrypted locally and never shared.</span>
+          </div>
+        </div>
+
+        <!-- Tab 2: Browser Login -->
+        <div id="tab-content-browser" class="auth-tab-content">
+          <div class="browser-login-card">
+            <div class="browser-login-info">
+              <span class="browser-login-title" id="browser-login-title">Sign in via official web portal</span>
+              <p class="browser-login-desc" id="browser-login-desc">Open the login page in your browser, complete the sign in, then capture the session below.</p>
+            </div>
+            <div class="browser-login-actions">
+              <button type="button" id="btn-launch-browser-login" class="btn btn--outline btn--sm">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Open Official Login
+              </button>
+              <button type="button" id="btn-import-browser" class="btn btn--gold btn--sm">
+                Capture Active Session
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Raw JSON -->
+        <div id="tab-content-json" class="auth-tab-content">
+          <div class="form-group">
+            <label for="input-creds">Credentials (JSON)</label>
+            <textarea id="input-creds" rows="4" placeholder='Paste your auth.json or tokens.json content here'></textarea>
+            <span class="form-hint">Paste full session or config JSON</span>
+          </div>
         </div>
 
         <!-- Usage Configuration -->

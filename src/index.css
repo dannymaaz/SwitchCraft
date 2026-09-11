@@ -948,6 +948,113 @@ body {
   color: var(--gold);
 }
 
+/* --- Auth Tabs --- */
+.auth-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  background: var(--bg-input);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: var(--border-input);
+  margin-bottom: var(--space-xs);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 6px var(--space-sm);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.auth-tab:hover {
+  color: var(--text-primary);
+}
+
+.auth-tab.active {
+  background: var(--bg-card);
+  color: var(--gold);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.auth-tab-content {
+  display: none;
+}
+
+.auth-tab-content.active {
+  display: block;
+}
+
+/* Label with Action (Show/Hide) */
+.label-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.label-with-action label {
+  margin-bottom: 0 !important;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color var(--duration-fast);
+}
+
+.text-btn:hover {
+  color: var(--gold-light);
+  text-decoration: underline;
+}
+
+/* Browser Login Card */
+.browser-login-card {
+  background: var(--bg-input);
+  border: var(--border-input);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.browser-login-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+}
+
+.browser-login-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.browser-login-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.browser-login-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
 /* Usage fields */
 .usage-fields {
   display: flex;
