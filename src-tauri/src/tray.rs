@@ -16,8 +16,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let show_item = MenuItemBuilder::with_id("show", "Open SwitchCraft").build(app)?;
     let quick_switch_item =
         MenuItemBuilder::with_id("quick_switch", "Switch account…").build(app)?;
-    let update_item =
-        MenuItemBuilder::with_id("check_update", "Check for Updates").build(app)?;
+    let update_item = MenuItemBuilder::with_id("check_update", "Check for Updates").build(app)?;
     let separator = MenuItemBuilder::with_id("sep", "──────────────")
         .enabled(false)
         .build(app)?;
