@@ -4,8 +4,7 @@ use serde_json::Value;
 const SERVICE_NAME: &str = "com.dannymaaz.switchcraft";
 
 fn entry_for(service: &str, account: &str) -> Result<Entry, String> {
-    Entry::new(service, account)
-        .map_err(|e| format!("Secure credential store is unavailable: {e}"))
+    Entry::new(service, account).map_err(|e| format!("Secure credential store is unavailable: {e}"))
 }
 
 fn entry(key: &str) -> Result<Entry, String> {
@@ -36,8 +35,7 @@ pub fn put_json(key: &str, value: &Value) -> Result<(), String> {
 
 pub fn get_json(key: &str) -> Result<Value, String> {
     let raw = get_text(key)?;
-    serde_json::from_str(&raw)
-        .map_err(|e| format!("Stored credentials are not valid JSON: {e}"))
+    serde_json::from_str(&raw).map_err(|e| format!("Stored credentials are not valid JSON: {e}"))
 }
 
 pub fn try_get_json(key: &str) -> Result<Option<Value>, String> {
@@ -72,9 +70,7 @@ pub fn try_get_external_text(service: &str, account: &str) -> Result<Option<Stri
 pub fn put_external_text(service: &str, account: &str, value: &str) -> Result<(), String> {
     entry_for(service, account)?
         .set_password(value)
-        .map_err(|e| format!(
-            "Could not write credential store entry for service '{service}': {e}"
-        ))
+        .map_err(|e| format!("Could not write credential store entry for service '{service}': {e}"))
 }
 
 /// Delete an external credential. Missing entries are treated as success.

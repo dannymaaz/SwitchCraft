@@ -1,6 +1,6 @@
 [package]
 name = "switchcraft"
-version = "1.1.0"
+version = "1.2.0"
 description = "Secure multi-account session switcher for AI developer tools"
 authors = ["Danny Maaz"]
 edition = "2021"

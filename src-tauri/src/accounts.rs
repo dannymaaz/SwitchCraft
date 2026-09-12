@@ -130,8 +130,7 @@ impl StoredAccount {
 fn switchcraft_dir() -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
     let dir = home.join(".switchcraft");
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
     Ok(dir)
 }
 
@@ -365,7 +364,10 @@ fn apply_transaction(mutations: &[PlannedMutation]) -> Result<RecoveryManifest, 
     })
 }
 
-fn persist_recovery_manifest(platform: &Platform, manifest: &RecoveryManifest) -> Result<(), String> {
+fn persist_recovery_manifest(
+    platform: &Platform,
+    manifest: &RecoveryManifest,
+) -> Result<(), String> {
     let value = serde_json::to_value(manifest)
         .map_err(|e| format!("Could not serialize recovery manifest: {e}"))?;
     secure_store::put_json(
@@ -374,7 +376,10 @@ fn persist_recovery_manifest(platform: &Platform, manifest: &RecoveryManifest) -
     )
 }
 
-fn restore_previous_manifest_value(platform: &Platform, previous: Option<Value>) -> Result<(), String> {
+fn restore_previous_manifest_value(
+    platform: &Platform,
+    previous: Option<Value>,
+) -> Result<(), String> {
     let key = secure_store::recovery_manifest_key(&platform.to_string());
     match previous {
         Some(value) => secure_store::put_json(&key, &value),
@@ -393,7 +398,8 @@ fn load_legacy_recovery_manifest(platform: &Platform) -> Result<RecoveryManifest
 
     let mut targets = Vec::with_capacity(slots.len());
     for (slot, path) in slots {
-        let value = secure_store::get_json(&secure_store::recovery_key(&platform.to_string(), slot))?;
+        let value =
+            secure_store::get_json(&secure_store::recovery_key(&platform.to_string(), slot))?;
         let snapshot: LegacyRecoverySnapshot = serde_json::from_value(value)
             .map_err(|e| format!("Legacy recovery snapshot is invalid: {e}"))?;
         targets.push(RecoveryTarget::File {
@@ -543,11 +549,8 @@ pub fn switch_account(id: String) -> Result<Account, String> {
     let previous_manifest = secure_store::try_get_json(&recovery_key)?;
 
     let credentials = load_credentials(&target)?;
-    let mutations = providers::build_mutations(
-        &target.platform,
-        &credentials,
-        target.email.as_deref(),
-    )?;
+    let mutations =
+        providers::build_mutations(&target.platform, &credentials, target.email.as_deref())?;
     let recovery = apply_transaction(&mutations)?;
 
     if let Err(err) = persist_recovery_manifest(&target.platform, &recovery) {

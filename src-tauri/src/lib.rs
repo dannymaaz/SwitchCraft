@@ -1,5 +1,6 @@
 mod accounts;
 mod atomic_fs;
+mod legacy_cleanup;
 mod providers;
 mod secure_store;
 mod tray;
@@ -64,6 +65,13 @@ pub fn run() {
             accounts::get_security_summary,
         ])
         .setup(|app| {
+            // SwitchCraft v1.0.1 created plaintext credential copies under
+            // ~/.switchcraft/backups. Remove only files matching that exact generated
+            // pattern before the application becomes available. A cleanup failure is
+            // treated as a startup error so we never silently claim a secure migration
+            // while known legacy credential copies remain on disk.
+            legacy_cleanup::cleanup_v1_plaintext_backups()?;
+
             tray::setup_tray(app.handle())?;
 
             let window = app.get_webview_window("main").unwrap();

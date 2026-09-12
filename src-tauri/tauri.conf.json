@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/nicegui-org/nicegui/main/tauri/src-tauri/gen/schemas/desktop-schema.json",
   "identifier": "com.dannymaaz.switchcraft",
   "productName": "SwitchCraft",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "build": {
     "frontendDist": "../src",
     "devUrl": "http://localhost:1420"
