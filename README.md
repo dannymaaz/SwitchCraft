@@ -231,7 +231,7 @@ Before packaging, CI verifies that these version sources agree:
 
 For a tagged release, the tag itself must match the synchronized project version. Release builds are uploaded to a **draft** GitHub release first; the release is made public only after all three platform build jobs succeed.
 
-The updater is supported on all three desktop platforms: Windows uses the NSIS updater package, macOS uses the signed `.app.tar.gz` updater artifact, and Linux uses the signed AppImage updater artifact. macOS and Linux relaunch the application after installation; Windows hands off to the NSIS installer, which exits/restarts the app as part of the updater flow.
+The updater is supported on all three desktop platforms: Windows uses the NSIS updater package, macOS uses the signed `.app.tar.gz` updater artifact, and Linux uses the signed AppImage updater artifact. After the updater installs on macOS/Linux, SwitchCraft explicitly relaunches itself. On Windows, Tauri exits the running app after successfully handing the update to the NSIS installer.
 
 Tauri updater artifacts are cryptographically signed. Updater signing is not the same as native publisher signing: Windows Authenticode and Apple Developer ID/notarization still require their respective platform credentials.
 
