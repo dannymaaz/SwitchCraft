@@ -19,7 +19,9 @@ fn hide_window(window: tauri::Window) {
 
 #[tauri::command]
 fn minimize_window(window: tauri::Window) {
-    window.minimize().ok();
+    // SwitchCraft is a tray-first app: the titlebar minimize action should remove
+    // the window from the taskbar while keeping the process and tray icon alive.
+    window.hide().ok();
 }
 
 #[tauri::command]
