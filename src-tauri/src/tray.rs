@@ -30,10 +30,17 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .item(&quit_item)
         .build()?;
 
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or("SwitchCraft default application icon is unavailable")?;
+
     let _tray = TrayIconBuilder::new()
+        .icon(icon)
         .menu(&menu)
-        // A normal click opens the tray menu. This keeps the main window out of the
-        // taskbar while still exposing account switching, update and quit controls.
+        // Windows and macOS can show this menu on a normal left click. Tauri's Linux
+        // AppIndicator backend does not support controlling the left-click gesture, but
+        // the same menu remains available through the desktop environment's context menu.
         .show_menu_on_left_click(true)
         .tooltip("SwitchCraft — Session Control")
         .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -59,8 +66,8 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             "quit" => app.exit(0),
             _ => {}
         })
-        // Double-click remains a fast way to reopen the main window without changing
-        // the single-click tray-menu behavior.
+        // Tray click events are available on Windows/macOS. Linux AppIndicator does not
+        // emit them, so Linux users reopen the window through the tray context menu.
         .on_tray_icon_event(|tray, event| {
             if let tauri::tray::TrayIconEvent::DoubleClick {
                 button: tauri::tray::MouseButton::Left,
