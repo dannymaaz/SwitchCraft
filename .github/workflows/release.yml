@@ -16,10 +16,16 @@ jobs:
         include:
           - platform: ubuntu-22.04
             target: linux
+            build_args: ''
+            rust_targets: ''
           - platform: macos-latest
-            target: macos
+            target: macos-universal
+            build_args: '--target universal-apple-darwin'
+            rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
           - platform: windows-latest
             target: windows
+            build_args: ''
+            rust_targets: ''
 
     runs-on: ${{ matrix.platform }}
 
@@ -48,6 +54,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+          targets: ${{ matrix.rust_targets }}
 
       - name: Install Linux dependencies
         if: matrix.target == 'linux'
@@ -91,12 +98,13 @@ jobs:
             Secure local session switching for supported AI developer tools.
 
             **Windows:** `.msi` / NSIS installer when generated
-            **macOS:** `.dmg` disk image
+            **macOS:** Universal `.dmg` for Apple Silicon and Intel
             **Linux:** `.AppImage`, `.deb` and other generated packages
 
             SwitchCraft updater artifacts are cryptographically signed by the Tauri updater pipeline. Native Windows Authenticode and Apple Developer ID/notarization remain separate platform-signing work.
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.build_args }}
 
   publish:
     name: Publish verified release
