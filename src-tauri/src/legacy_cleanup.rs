@@ -9,10 +9,13 @@ fn looks_like_v1_timestamp(value: &str) -> bool {
         return false;
     }
 
-    value
-        .bytes()
-        .enumerate()
-        .all(|(index, byte)| if index == 8 { byte == b'_' } else { byte.is_ascii_digit() })
+    value.bytes().enumerate().all(|(index, byte)| {
+        if index == 8 {
+            byte == b'_'
+        } else {
+            byte.is_ascii_digit()
+        }
+    })
 }
 
 fn is_v1_plaintext_backup_name(name: &str) -> bool {
@@ -84,9 +87,7 @@ mod tests {
         ));
 
         assert!(!is_v1_plaintext_backup_name("notes_backup.json"));
-        assert!(!is_v1_plaintext_backup_name(
-            "codex_personal_backup.json"
-        ));
+        assert!(!is_v1_plaintext_backup_name("codex_personal_backup.json"));
         assert!(!is_v1_plaintext_backup_name(
             "openai_20260911_235959_backup.json"
         ));
@@ -122,11 +123,8 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let backup_dir = temp.path().join("backups");
         fs::create_dir_all(&backup_dir).expect("backup dir");
-        fs::write(
-            backup_dir.join("claude_20260911_010203_backup.json"),
-            "{}",
-        )
-        .expect("legacy backup");
+        fs::write(backup_dir.join("claude_20260911_010203_backup.json"), "{}")
+            .expect("legacy backup");
 
         let removed = cleanup_v1_plaintext_backups_in(&backup_dir).expect("cleanup");
 
