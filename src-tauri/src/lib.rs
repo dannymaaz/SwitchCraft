@@ -50,6 +50,42 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .on_page_load(|_webview, _| {
+            #[cfg(target_os = "macos")]
+            {
+                // SwitchCraft uses a custom titlebar, so reproduce macOS window-control
+                // placement explicitly: close/minimize on the left, app identity next to
+                // them, and Quick Switch on the far right. Windows/Linux keep the existing
+                // right-side controls.
+                let _ = _webview.eval(
+                    r#"
+                    (() => {
+                      const applyMacTitlebar = () => {
+                        const titlebar = document.getElementById('titlebar');
+                        const brand = titlebar?.querySelector('.titlebar-brand');
+                        const right = titlebar?.querySelector('.titlebar-right');
+                        const controls = right?.querySelector('.window-controls') || titlebar?.querySelector('.window-controls');
+                        if (!titlebar || !brand || !right || !controls) return;
+
+                        if (controls.parentElement !== titlebar) {
+                          titlebar.insertBefore(controls, brand);
+                        }
+                        controls.style.flexDirection = 'row-reverse';
+                        titlebar.style.justifyContent = 'flex-start';
+                        titlebar.style.gap = '8px';
+                        right.style.marginLeft = 'auto';
+                      };
+
+                      if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', applyMacTitlebar, { once: true });
+                      } else {
+                        applyMacTitlebar();
+                      }
+                    })();
+                    "#,
+                );
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_app_version,
             hide_window,
