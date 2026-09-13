@@ -22,6 +22,7 @@ let selectedPlatform = 'codex';
 let selectedAuthTab = 'session';
 let deleteTargetId = null;
 let quickSelectedIndex = 0;
+let installChannel = 'unknown';
 let settings = { autoUpdate: true, notifications: true };
 
 const PROVIDERS = {
@@ -72,7 +73,10 @@ async function initApp() {
   setupEventListeners();
   updateShortcutLabel();
   await Promise.all([loadVersion(), loadAccounts(), loadSettings()]);
-  if (settings.autoUpdate) setTimeout(() => checkForUpdates(true), 1800);
+  await loadInstallChannel();
+  if (settings.autoUpdate && installChannel !== 'msi') {
+    setTimeout(() => checkForUpdates(true), 1800);
+  }
 }
 
 document.readyState === 'loading'
@@ -83,7 +87,22 @@ async function loadVersion() {
   try {
     $('#version-number').textContent = `v${await invoke('get_app_version')}`;
   } catch {
-    $('#version-number').textContent = 'v1.1.0';
+    $('#version-number').textContent = 'v1.2.0';
+  }
+}
+
+async function loadInstallChannel() {
+  try {
+    installChannel = await invoke('get_install_channel');
+  } catch {
+    installChannel = 'unknown';
+  }
+
+  if (installChannel === 'msi') {
+    const toggle = $('#toggle-autoupdate');
+    toggle.checked = false;
+    toggle.disabled = true;
+    toggle.title = 'MSI installations use MSI-to-MSI updates from GitHub Releases';
   }
 }
 
@@ -405,7 +424,25 @@ function saveSettings() {
   localStorage.setItem('switchcraft_settings', JSON.stringify(settings));
 }
 
+async function openLatestReleaseForMsi() {
+  toast('MSI installation detected. Opening the latest MSI release…');
+  await invoke('open_browser_url', {
+    url: 'https://github.com/dannymaaz/SwitchCraft/releases/latest',
+  });
+}
+
 async function checkForUpdates(silent = false) {
+  if (installChannel === 'msi') {
+    if (!silent) {
+      try {
+        await openLatestReleaseForMsi();
+      } catch (error) {
+        toast(`Could not open the latest release: ${error}`, true);
+      }
+    }
+    return;
+  }
+
   try {
     const checkFn = updaterCheck();
     if (!checkFn) {
@@ -425,6 +462,15 @@ async function checkForUpdates(silent = false) {
 }
 
 async function installUpdate() {
+  if (installChannel === 'msi') {
+    try {
+      await openLatestReleaseForMsi();
+    } catch (error) {
+      toast(`Could not open the latest release: ${error}`, true);
+    }
+    return;
+  }
+
   try {
     const update = await updaterCheck();
     if (!update) return;
