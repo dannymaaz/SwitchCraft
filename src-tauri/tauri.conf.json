@@ -49,6 +49,9 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
+      "wix": {
+        "upgradeCode": "6a90a7ac-9f50-57e4-8689-c42a2562ef1e"
+      },
       "nsis": {
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
