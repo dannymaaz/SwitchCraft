@@ -31,6 +31,10 @@ v1.2 builds on the secure session-first architecture introduced during the v1.1 
 - Existing v1.1 file recovery snapshots remain readable.
 - Known managed Codex auth-storage policy is detected so SwitchCraft does not silently switch a backend that Codex will ignore.
 - Release metadata is synchronized across npm, Cargo and Tauri, with CI checks preventing mismatched tags or stale lockfiles.
+- Desktop window behavior is tray-first on Windows, macOS and Linux. macOS places the custom close/minimize controls on the left; Windows and Linux keep them on the right.
+- The tray menu exposes Open SwitchCraft, Switch account, Check for Updates and Quit. Windows/macOS support richer tray click behavior; Linux AppIndicator environments use the context menu because Tauri does not expose Linux tray click events.
+- Autostart launches SwitchCraft with `--hidden` so the app can start without opening its main window.
+- Windows releases include both an **NSIS `.exe`** and a **WiX `.msi`**. The `.exe` is the recommended normal-user installer and is selected by the automatic updater; the `.msi` remains available for manual or managed deployment.
 
 Because v1.1 was never published as a public GitHub release, v1.2 also includes the v1.1 foundation: native SwitchCraft vault storage, migration away from plaintext profile secrets, atomic file replacement, Quick Switch, redesigned black-and-gold UI, updater signing and package-smoke CI.
 
@@ -144,7 +148,7 @@ Use:
 - **Windows / Linux:** `Ctrl + K`
 - **macOS:** `Cmd + K`
 
-Search by profile name, email or provider, move with the arrow keys and press Enter to switch. The system-tray Quick Switch entry uses the same Rust transaction engine.
+Search by profile name, email or provider, move with the arrow keys and press Enter to switch. The tray menu uses the same Rust transaction engine. On Windows and macOS the tray supports direct click interactions; on Linux, AppIndicator environments expose the menu through the desktop environment's context-menu gesture.
 
 ---
 
@@ -227,6 +231,17 @@ Before packaging, CI verifies that these version sources agree:
 - `src-tauri/Cargo.lock`
 
 For a tagged release, the tag itself must match the synchronized project version. Release builds are uploaded to a **draft** GitHub release first; the release is made public only after all three platform build jobs succeed.
+
+### Windows installers
+
+Every Windows release publishes both formats:
+
+- **`SwitchCraft_*_x64-setup.exe` (NSIS):** recommended for normal installations and the package selected by `latest.json` for automatic updates.
+- **`SwitchCraft_*_x64_*.msi` (WiX):** alternative for manual or managed MSI deployment. Its WiX upgrade identity is pinned so MSI-to-MSI upgrades remain stable.
+
+Do not alternate installer families for an existing installation unless you intentionally migrate it. A single updater feed can select only one Windows installer family at a time; SwitchCraft intentionally uses NSIS for automatic in-app updates to avoid silently switching installer registration paths.
+
+The updater is supported on all three desktop platforms: Windows uses the NSIS updater package, macOS uses the signed `.app.tar.gz` updater artifact, and Linux uses the signed AppImage updater artifact. After the updater installs on macOS/Linux, SwitchCraft explicitly relaunches itself. On Windows, Tauri hands the update to the selected NSIS installer using its updater flow.
 
 Tauri updater artifacts are cryptographically signed. Updater signing is not the same as native publisher signing: Windows Authenticode and Apple Developer ID/notarization still require their respective platform credentials.
 

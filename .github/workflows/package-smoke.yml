@@ -91,6 +91,18 @@ jobs:
           $files | Select-Object FullName, Length
           if ($files.Count -eq 0) { throw 'No package artifacts were generated.' }
 
+          $nsis = $files | Where-Object { $_.Name -like '*-setup.exe' }
+          if ($nsis.Count -eq 0) { throw 'The Windows NSIS .exe installer was not generated.' }
+
+          $msi = $files | Where-Object { $_.Extension -eq '.msi' }
+          if ($msi.Count -eq 0) { throw 'The Windows MSI installer was not generated.' }
+
+          $nsisSig = $files | Where-Object { $_.Name -like '*-setup.exe.sig' }
+          if ($nsisSig.Count -eq 0) { throw 'The NSIS updater signature was not generated.' }
+
+          $msiSig = $files | Where-Object { $_.Name -like '*.msi.sig' }
+          if ($msiSig.Count -eq 0) { throw 'The MSI updater signature was not generated.' }
+
       - name: Upload package smoke artifacts
         uses: actions/upload-artifact@v4
         with:

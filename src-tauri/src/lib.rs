@@ -13,13 +13,60 @@ fn get_app_version() -> String {
 }
 
 #[tauri::command]
+fn get_install_channel() -> String {
+    #[cfg(target_os = "windows")]
+    {
+        let exe = match std::env::current_exe() {
+            Ok(path) => path.to_string_lossy().to_lowercase(),
+            Err(_) => return "unknown".into(),
+        };
+
+        let in_env_path = |name: &str| {
+            std::env::var(name)
+                .ok()
+                .map(|value| exe.starts_with(&value.to_lowercase()))
+                .unwrap_or(false)
+        };
+
+        // Tauri's WiX MSI installs under Program Files by default. SwitchCraft's
+        // configured NSIS installer is current-user and installs under LOCALAPPDATA.
+        // Keep these channels distinct so an MSI installation is never silently
+        // converted into an NSIS registration by the automatic updater.
+        if in_env_path("ProgramFiles") || in_env_path("ProgramFiles(x86)") {
+            return "msi".into();
+        }
+        if in_env_path("LOCALAPPDATA") {
+            return "nsis".into();
+        }
+        return "unknown".into();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        "macos".into()
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        "linux".into()
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        "unknown".into()
+    }
+}
+
+#[tauri::command]
 fn hide_window(window: tauri::Window) {
     window.hide().ok();
 }
 
 #[tauri::command]
 fn minimize_window(window: tauri::Window) {
-    window.minimize().ok();
+    // SwitchCraft is a tray-first app: the titlebar minimize action should remove
+    // the window from the taskbar while keeping the process and tray icon alive.
+    window.hide().ok();
 }
 
 #[tauri::command]
@@ -48,8 +95,45 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .on_page_load(|_webview, _| {
+            #[cfg(target_os = "macos")]
+            {
+                // SwitchCraft uses a custom titlebar, so reproduce macOS window-control
+                // placement explicitly: close/minimize on the left, app identity next to
+                // them, and Quick Switch on the far right. Windows/Linux keep the existing
+                // right-side controls.
+                let _ = _webview.eval(
+                    r#"
+                    (() => {
+                      const applyMacTitlebar = () => {
+                        const titlebar = document.getElementById('titlebar');
+                        const brand = titlebar?.querySelector('.titlebar-brand');
+                        const right = titlebar?.querySelector('.titlebar-right');
+                        const controls = right?.querySelector('.window-controls') || titlebar?.querySelector('.window-controls');
+                        if (!titlebar || !brand || !right || !controls) return;
+
+                        if (controls.parentElement !== titlebar) {
+                          titlebar.insertBefore(controls, brand);
+                        }
+                        controls.style.flexDirection = 'row-reverse';
+                        titlebar.style.justifyContent = 'flex-start';
+                        titlebar.style.gap = '8px';
+                        right.style.marginLeft = 'auto';
+                      };
+
+                      if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', applyMacTitlebar, { once: true });
+                      } else {
+                        applyMacTitlebar();
+                      }
+                    })();
+                    "#,
+                );
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_app_version,
+            get_install_channel,
             hide_window,
             minimize_window,
             open_browser_url,
